@@ -438,13 +438,23 @@ const usePoints = c => 7 - Math.min(c.a,c.b);
    二、数轴结算 —— 单牌、双牌、贯穿（计算逻辑不变）
    ========================================================= */
 function resolvePierce(pos,neg){
+  // 设计文档 §4.3 双向贯穿：两侧 *同时* 清零，溢出量再加到对侧
+  // 顺序处理会导致负轴在正轴溢出后已变正，从而漏算第二条贯穿
   let guard=0; const pierce=[];
   while((pos<0||neg<0)&&guard<2){
     guard++;
-    if(pos<0){ const ov=-pos; pos=0; neg+=ov;
-      pierce.push(`正轴被减到 0 以下，穿过基线 —— 多出的 ${ov} 翻面贯穿到负轴（负轴 +${ov}）`); }
-    if(neg<0){ const ov=-neg; neg=0; pos+=ov;
-      pierce.push(`负轴被减到 0 以下，穿过基线 —— 多出的 ${ov} 翻面贯穿到正轴（正轴 +${ov}）`); }
+    const posOV = pos<0 ? -pos : 0;
+    const negOV = neg<0 ? -neg : 0;
+    if(posOV>0){
+      pos = 0;
+      pierce.push(`正轴被减到 0 以下，穿过基线 —— 多出的 ${posOV} 翻面贯穿到负轴（负轴 +${posOV}）`);
+    }
+    if(negOV>0){
+      neg = 0;
+      pierce.push(`负轴被减到 0 以下，穿过基线 —— 多出的 ${negOV} 翻面贯穿到正轴（正轴 +${negOV}）`);
+    }
+    neg += posOV;
+    pos += negOV;
   }
   return {pos,neg,pierce};
 }
@@ -1509,6 +1519,24 @@ window.addEventListener('resize', () => {
 });
 
 buildStart();
+
+/* =========================================================
+   暴露内部 API 给 test.html（同源 iframe）
+   ========================================================= */
+window.__GAME = {
+  // 数据
+  CARDS, CARD_BY_ID, COMBO, ENEMIES, DEFAULT_CONFIG,
+  get CFG(){ return CFG; },
+  G,
+  // 纯函数
+  faceOf, power, hasBigPip, usePoints,
+  resolvePierce, calcSingle, calcDouble, comboNumber,
+  buildDeck, shuffle,
+  // 高层
+  applyCardEffect, simulatePlay,
+  // 工具
+  clone,
+};
 </script>
 </body>
 </html>

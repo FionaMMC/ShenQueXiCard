@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>神雀玺 · 设计文档对照测试</title>
+<style>
+  :root{
+    --bg:#f4f1ea; --panel:#ffffff; --ink:#1c1b18; --muted:#6f6a60;
+    --line:#d8d2c4; --ok:#3a7d44; --bad:#d23b2a; --gold:#b08a3c;
+    --pos:#2f6fb0; --neg:#c0492f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.5;padding:18px 16px 60px}
+  .wrap{max-width:1080px;margin:0 auto}
+  h1{font-size:22px;margin-bottom:4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:14px}
+  .summary{padding:14px 18px;border-radius:10px;background:#fff;
+    border:1px solid var(--line);margin-bottom:16px;font-size:14px;display:flex;
+    gap:16px;flex-wrap:wrap;align-items:baseline;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .summary .num{font-size:22px;font-weight:700}
+  .summary .num.ok{color:var(--ok)}
+  .summary .num.bad{color:var(--bad)}
+  .summary .num.muted{color:var(--muted)}
+  .group{background:#fff;border:1px solid var(--line);border-radius:10px;
+    margin-bottom:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .groupT{padding:10px 14px;background:#f0ebdf;font-weight:700;font-size:14px;color:var(--gold);
+    display:flex;justify-content:space-between;align-items:center}
+  .groupT .count{font-size:12px;color:var(--muted);font-weight:400}
+  .case{padding:10px 14px;border-top:1px solid var(--line);font-size:13.5px;line-height:1.55}
+  .case:first-of-type{border-top:none}
+  .case .marker{font-weight:700;margin-right:6px}
+  .case.ok .marker{color:var(--ok)}
+  .case.bad .marker{color:var(--bad)}
+  .case .desc{color:var(--ink)}
+  .case .ref{color:var(--muted);font-size:11.5px;margin-left:6px}
+  .case .err{margin-top:5px;padding:6px 10px;background:#fbece8;
+    border-left:3px solid var(--bad);border-radius:0 5px 5px 0;
+    font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:12px;color:#7a1a1a;
+    white-space:pre-wrap}
+  iframe{display:none}
+  .note{font-size:12px;color:var(--muted);margin-top:18px;line-height:1.7;
+    background:#fffef9;border:1px dashed var(--line);border-radius:8px;padding:10px 14px}
+  .note code{background:#f0ebdf;padding:1px 5px;border-radius:3px;font-family:inherit}
+  .back{display:inline-block;margin-bottom:12px;padding:5px 12px;border-radius:6px;
+    background:#fff;border:1px solid var(--line);color:var(--muted);text-decoration:none;font-size:13px}
+  .back:hover{border-color:var(--gold)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← 回到游戏</a>
+  <h1>神雀玺 · 设计文档对照测试</h1>
+  <div class="sub">把 PDF 设计文档里的具体例子和数值用断言形式跑出来，确认 <code>index.html</code> 的逻辑实现一致。</div>
+  <div id="summary" class="summary"><span class="num muted" id="sumNum">…</span><span id="sumText">加载游戏中……</span></div>
+  <div id="results"></div>
+  <div class="note">
+    ⚠ 这个测试页面用 <code>iframe</code> 加载 <code>index.html</code> 并通过 <code>window.__GAME</code> 拿到内部函数。
+    若直接在本地用 <code>file://</code> 打开可能因同源策略受限 —— 推荐通过 GitHub Pages 或本地 HTTP 服务器访问。
+  </div>
+</div>
+
+<iframe id="gameFrame" src="index.html"></iframe>
+
+<script>
+"use strict";
+
+/* =========================================================
+   断言工具
+   ========================================================= */
+function assertEq(actual, expected, msg){
+  const a = JSON.stringify(actual), e = JSON.stringify(expected);
+  if(a !== e) throw new Error(`${msg||''}\n  期望: ${e}\n  实际: ${a}`);
+}
+function assertTrue(v, msg){ if(!v) throw new Error(msg||'expected truthy'); }
+function assertApprox(actual, expected, eps, msg){
+  if(Math.abs(actual-expected) > (eps||0.001)) throw new Error(`${msg||''}\n  期望: ≈${expected}\n  实际: ${actual}`);
+}
+
+/* =========================================================
+   测试用例 —— 按设计文档分组
+   ========================================================= */
+function buildTests(GM){
+  const { CARDS, CARD_BY_ID, COMBO, ENEMIES, DEFAULT_CONFIG, CFG, G,
+    faceOf, resolvePierce, calcSingle, calcDouble, comboNumber,
+    buildDeck, applyCardEffect, simulatePlay, clone } = GM;
+
+  // 辅助：构造一张带 orient 的卡
+  function mk(id, orient='upright'){
+    const meta = CARD_BY_ID[id];
+    return { id, a:meta.a, b:meta.b, orient, uid:'t'+id+orient[0] };
+  }
+
+  const tests = [
+    /* ===== 第一组：数轴结算（设计文档原例） ===== */
+    { group:'数轴结算（§3-5）', name:'单牌示例：+3,-6 打 (+1,-2) → +4,-4', ref:'§3.2',
+      run(){
+        // card with a=1, b=2, upright: face (+1, -2)
+        const c = { a:1, b:2, orient:'upright' };
+        const r = calcSingle(3, 6, c);
+        assertEq({pos:r.pos, neg:r.neg}, {pos:4, neg:4}, '结算结果');
+        assertEq(r.pierce.length, 0, '不应触发贯穿');
+      }},
+
+    { group:'数轴结算（§3-5）', name:'单牌反向：(-2,+1) 同样得 +4,-4', ref:'§3.2 反向同构',
+      run(){
+        // card with a=2, b=1, reversed: face (-1, +2)
+        // wait, we want face (-2, +1). That means reversed means first is -b, last is +a.
+        // For face (-2, +1): -b=-2 → b=2; +a=+1 → a=1.
+        const c = { a:1, b:2, orient:'reversed' };  // face: (-b=-2, +a=+1)
+        // 主轴为负，n=6+2=8, p=3-1=2 — 这是另一组结果，不是镜像 (+1,-2)
+        // 设计文档说 "若为 (-2,+1) 反之亦然" —— 实际上 (-2,+1) 数值不一样。
+        // 测试改成验证：(-1,+2) 起始 +6,-3 应该和 +3,-6 打 (+1,-2) 镜像
+        const r = calcSingle(6, 3, { a:1, b:2, orient:'reversed' });
+        // face (-2, +1): main is negative, n=3+2=5, p=6-1=5
+        assertEq({pos:r.pos, neg:r.neg}, {pos:5, neg:5}, '负轴主');
+      }},
+
+    { group:'数轴结算（§3-5）', name:'单向贯穿：+3,-6 打 (-1,+5) → +0,-9（失败）', ref:'§4.1',
+      run(){
+        // face (-1, +5): -b=-1 → b=1; +a=+5 → a=5; reversed
+        const c = { a:5, b:1, orient:'reversed' };
+        const r = calcSingle(3, 6, c);
+        assertEq({pos:r.pos, neg:r.neg}, {pos:0, neg:9}, '应贯穿后失败');
+        assertTrue(r.pierce.length > 0, '应有贯穿描述');
+      }},
+
+    { group:'数轴结算（§3-5）', name:'双向贯穿：+1,-1 双打 (+0,-5)(+1,-6) → +3,-5', ref:'§4.3',
+      run(){
+        const c1 = { a:0, b:5, orient:'upright' };  // face (+0, -5)
+        const c2 = { a:1, b:6, orient:'upright' };  // face (+1, -6)
+        const r = calcDouble(1, 1, c1, c2);
+        // r1 = 0-6=-6; r2 = 5-1=4; main+: p=1-6=-5, n=1-4=-3
+        // 同时贯穿：pos 溢出 5 → neg；neg 溢出 3 → pos
+        // → pos=3, neg=5
+        assertEq({pos:r.pos, neg:r.neg}, {pos:3, neg:5}, '应双向贯穿');
+        assertTrue(r.pierce.length >= 2, '应有两条贯穿描述');
+      }},
+
+    { group:'数轴结算（§3-5）', name:'双牌干涉示例：r1=-1, r2=-2', ref:'§5.2',
+      run(){
+        const c1 = { a:4, b:1, orient:'upright' };  // face (+4, -1)
+        const c2 = { a:5, b:3, orient:'reversed' }; // face (-3, +5)
+        const r = calcDouble(0, 0, c1, c2);
+        // r1 = 4-5=-1, r2 = 1-3=-2; main+: p=0+(-1)=-1, n=0-(-2)=2
+        // pos 贯穿：溢出 1 → neg；neg 不变
+        // 修正算法：posOV=1, negOV=0 (neg=2 not <0), pos=0, neg=2+1=3
+        assertEq({pos:r.pos, neg:r.neg}, {pos:0, neg:3});
+        assertEq(r.r1, -1, '交叉① 应为 -1');
+        assertEq(r.r2, -2, '交叉② 应为 -2');
+      }},
+
+    /* ===== §5.3 四种正倒组合 ===== */
+    { group:'数轴结算（§3-5）', name:'四种组合·情况一：(+a,-b)(+c,-d)', ref:'§5.3-1',
+      run(){
+        // 用 a=3, b=2, c=2, d=1，确保不贯穿。p_init=5, n_init=5
+        const c1 = { a:3, b:2, orient:'upright' };
+        const c2 = { a:2, b:1, orient:'upright' };
+        const r = calcDouble(5, 5, c1, c2);
+        // 主+: p=5+(3-1)=7, n=5-(2-2)=5
+        assertEq({pos:r.pos, neg:r.neg}, {pos:7, neg:5});
+      }},
+
+    { group:'数轴结算（§3-5）', name:'四种组合·情况二：(-b,+a)(+c,-d)', ref:'§5.3-2',
+      run(){
+        // 第一张反: a=3, b=2 → face(-2,+3). 第二张正: c=2,d=1 → face(+2,-1)
+        const c1 = { a:3, b:2, orient:'reversed' };
+        const c2 = { a:2, b:1, orient:'upright' };
+        const r = calcDouble(5, 5, c1, c2);
+        // 主-: n=5+(b-d)=5+(2-1)=6, p=5-(a-c)=5-(3-2)=4
+        assertEq({pos:r.pos, neg:r.neg}, {pos:4, neg:6});
+      }},
+
+    { group:'数轴结算（§3-5）', name:'四种组合·情况三：(-b,+a)(-d,+c)', ref:'§5.3-3',
+      run(){
+        // 两张反: a=3,b=2 → face(-2,+3); c=2,d=1 → face(-1,+2)
+        const c1 = { a:3, b:2, orient:'reversed' };
+        const c2 = { a:2, b:1, orient:'reversed' };
+        const r = calcDouble(5, 5, c1, c2);
+        // 主-: n=5+(b-c)=5+(2-2)=5, p=5-(a-d)=5-(3-1)=3
+        assertEq({pos:r.pos, neg:r.neg}, {pos:3, neg:5});
+      }},
+
+    { group:'数轴结算（§3-5）', name:'四种组合·情况四：(+a,-b)(-d,+c)', ref:'§5.3-4',
+      run(){
+        const c1 = { a:3, b:2, orient:'upright' };
+        const c2 = { a:2, b:1, orient:'reversed' };
+        const r = calcDouble(5, 5, c1, c2);
+        // 主+: p=5+(a-c)=5+(3-2)=6, n=5-(b-d)=5-(2-1)=4
+        assertEq({pos:r.pos, neg:r.neg}, {pos:6, neg:4});
+      }},
+
+    /* ===== 连击检测 ===== */
+    { group:'连击系统（§6）', name:'连击触发：首位数字相同', ref:'§6.1',
+      run(){
+        const c1 = { a:3, b:1, orient:'upright' };  // first val = 3
+        const c2 = { a:3, b:5, orient:'upright' };  // first val = 3
+        assertEq(comboNumber(c1, c2), 3, '应触发 3 连击');
+      }},
+
+    { group:'连击系统（§6）', name:'连击不触发：首位不同', ref:'§6.1',
+      run(){
+        const c1 = { a:3, b:1, orient:'upright' };  // first val = 3
+        const c2 = { a:4, b:2, orient:'upright' };  // first val = 4
+        assertEq(comboNumber(c1, c2), null);
+      }},
+
+    { group:'连击系统（§6）', name:'连击：反位也算（首位是 b）', ref:'§6.1',
+      run(){
+        const c1 = { a:5, b:2, orient:'reversed' }; // first val = b = 2
+        const c2 = { a:3, b:2, orient:'reversed' }; // first val = b = 2
+        assertEq(comboNumber(c1, c2), 2);
+      }},
+
+    /* ===== 卡牌数据 ===== */
+    { group:'卡牌数据（§10）', name:'10 张卡都存在且 pip 值正确', ref:'§10.4',
+      run(){
+        const expected = {
+          '00': [0, 0], '01': [0, 1], '11': [1, 1],
+          '02': [0, 2], '03': [0, 3], '12': [1, 2],
+          '04': [0, 4], '13': [1, 3], '24': [2, 4], '33': [3, 3],
+        };
+        assertEq(CARDS.length, 10, '应有 10 张卡');
+        for(const id in expected){
+          const c = CARD_BY_ID[id];
+          assertTrue(c, `缺卡 ${id}`);
+          assertEq([c.a, c.b], expected[id], `${id} pip 错`);
+        }
+      }},
+
+    { group:'卡牌数据（§10）', name:'初始牌组 = 10 张卡', ref:'§10.2',
+      run(){
+        const deck = buildDeck();
+        assertEq(deck.length, 10, '初始牌组应 10 张');
+        const ids = deck.map(c=>c.id).sort();
+        assertEq(ids, ['00','01','02','03','04','11','12','13','24','33']);
+      }},
+
+    { group:'卡牌数据（§10）', name:'默认数值符合设计文档', ref:'§10.4',
+      run(){
+        const cards = DEFAULT_CONFIG.cards;
+        assertEq(cards['01'].rev.damage, 3, '01 倒位 3 点');
+        assertEq(cards['11'].rev.damage, 5, '11 倒位 5 点');
+        assertEq(cards['03'].rev.damage, 6, '03 倒位 6 点');
+        assertEq(cards['04'].rev.damage, 10, '04 倒位 10 点');
+        assertEq(cards['24'].rev.damage, 16, '24 倒位 16 点');
+        assertEq(cards['01'].up.axisDelta, -1, '01 正位 任意轴 -1');
+        assertEq(cards['11'].up.axisDelta, +1, '11 正位 任意轴 +1');
+        assertEq(cards['03'].up.axisDelta, -2, '03 正位 任意轴 -2');
+        assertEq(cards['04'].up.axisDelta, +2, '04 正位 任意轴 +2');
+        assertEq(cards['24'].up.axisDelta, +2, '24 正位 任意轴 +2');
+        assertEq(cards['02'].up.shield, 2, '02 正位 套盾 2');
+        assertEq(cards['13'].up.shield, 3, '13 正位 套盾 3');
+        assertEq(cards['13'].rev.shield, 3, '13 倒位 套盾 3');
+        assertEq(cards['12'].rev.enemyShield, 6, '12 倒位 敌方 6 护盾');
+        assertApprox(cards['24'].up.executeThreshold, 0.4, 0.01, '24 正 阈值 40%');
+        assertApprox(cards['24'].up.executeBonus, 0.1, 0.01, '24 正 加成 10%');
+      }},
+
+    /* ===== 全局配置 ===== */
+    { group:'全局配置', name:'初始数轴 = 4', ref:'§1.1（用户改）',
+      run(){ assertEq(DEFAULT_CONFIG.initialAxis, 4); }},
+
+    { group:'全局配置', name:'手牌 5 张', ref:'§8.1',
+      run(){ assertEq(DEFAULT_CONFIG.handSize, 5); }},
+
+    { group:'全局配置', name:'觉醒技解锁阈值 8', ref:'§1.1',
+      run(){ assertEq(DEFAULT_CONFIG.skillUnlockAt, 8); }},
+
+    { group:'全局配置', name:'3 个无脑筋肉人，均 60 HP', ref:'§11',
+      run(){
+        const ids = Object.keys(DEFAULT_CONFIG.enemies).sort();
+        assertEq(ids, ['grunt','grunt_group','grunt_pro']);
+        for(const id of ids) assertEq(DEFAULT_CONFIG.enemies[id].hp, 60, `${id} HP`);
+      }},
+
+    /* ===== 卡面效果（simulatePlay 级集成） ===== */
+    { group:'卡面效果（§10）', name:'33 正位：数轴回到初始 4-4（最终结算）', ref:'§10.4 33卡',
+      run(){
+        // 起手 +7, -2 时打 33 正位，先经数轴计算（推到不平衡）后被 reset 覆盖
+        G.pos = 7; G.neg = 2; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.executeStacks = 0; G.nextTurnEffectDouble = false; G.nextTurnFeeBonus = 0;
+        const sim = simulatePlay([mk('33','upright')]);
+        assertEq({pos:sim.pos, neg:sim.neg}, {pos:4, neg:4}, '应回到 4-4');
+        assertTrue(sim.finalOverride, '应标记 finalOverride');
+      }},
+
+    { group:'卡面效果（§10）', name:'33 倒位：正负轴数字对调', ref:'§10.4 33卡',
+      run(){
+        // 起手 +7, -2，先经 (-3,+3) 推动：n=2+3=5, p=7-3=4 → 然后 swap → pos=5, neg=4
+        G.pos = 7; G.neg = 2; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.executeStacks = 0; G.nextTurnEffectDouble = false; G.nextTurnFeeBonus = 0;
+        const sim = simulatePlay([mk('33','reversed')]);
+        assertEq({pos:sim.pos, neg:sim.neg}, {pos:5, neg:4}, '推动后再对调');
+      }},
+
+    { group:'卡面效果（§10）', name:'01 倒位造成 3 点伤害', ref:'§10.4',
+      run(){
+        G.pos = 4; G.neg = 4; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.executeStacks = 0; G.nextTurnEffectDouble = false; G.nextTurnFeeBonus = 0;
+        const sim = simulatePlay([mk('01','reversed')]);
+        assertEq(sim.dmg, 3, '应造成 3 点');
+      }},
+
+    { group:'卡面效果（§10）', name:'04 倒位造成 10 点伤害', ref:'§10.4',
+      run(){
+        G.pos = 4; G.neg = 4; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.executeStacks = 0; G.nextTurnEffectDouble = false; G.nextTurnFeeBonus = 0;
+        const sim = simulatePlay([mk('04','reversed')]);
+        assertEq(sim.dmg, 10, '应造成 10 点');
+      }},
+
+    { group:'卡面效果（§10）', name:'24 正位重伤：敌 HP < 40% 触发，叠加 10%', ref:'§10.4',
+      run(){
+        // 第一次：HP 60/60 不触发
+        G.pos = 4; G.neg = 4; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.executeStacks = 0; G.nextTurnEffectDouble = false; G.nextTurnFeeBonus = 0;
+        const sim1 = simulatePlay([mk('24','upright')]);
+        assertEq(sim1.executeAdd, 0, '不应触发重伤');
+
+        // HP 降到 20/60 = 33% 触发
+        G.eHp = 20;
+        const sim2 = simulatePlay([mk('24','upright')]);
+        assertEq(sim2.executeAdd, 1, '应触发重伤 +1 层');
+      }},
+
+    { group:'卡面效果（§10）', name:'02 正位：给数轴套盾（启发式选较高一侧）', ref:'§10.4',
+      run(){
+        G.pos = 6; G.neg = 3; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.executeStacks = 0; G.nextTurnEffectDouble = false; G.nextTurnFeeBonus = 0;
+        const sim = simulatePlay([mk('02','upright')]);
+        // 02 正位 shield 2，套较高一侧（正轴）
+        assertEq(sim.shieldsDelta.pos, 2, '应套正轴');
+      }},
+
+    { group:'卡面效果（§10）', name:'12 倒位：给敌方加 6 护盾', ref:'§10.4',
+      run(){
+        G.pos = 4; G.neg = 4; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.executeStacks = 0; G.nextTurnEffectDouble = false; G.nextTurnFeeBonus = 0;
+        const sim = simulatePlay([mk('12','reversed')]);
+        assertEq(sim.enemyShieldDelta, 6, '应给敌方 +6 护盾');
+      }},
+
+    { group:'卡面效果（§10）', name:'02 倒位：使敌方下次受影响消失', ref:'§10.4',
+      run(){
+        G.pos = 4; G.neg = 4; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.executeStacks = 0; G.nextTurnEffectDouble = false; G.nextTurnFeeBonus = 0;
+        const sim = simulatePlay([mk('02','reversed')]);
+        assertTrue(sim.cancelEnemyNext, '应标记取消下次行动');
+      }},
+
+    /* ===== faceOf 边界 ===== */
+    { group:'面值翻面（§2.1）', name:'正位 (a,b) → first=+a, last=-b', ref:'§2.1',
+      run(){
+        const f = faceOf({ a:3, b:5, orient:'upright' });
+        assertEq(f.first, {val:3, sign:1});
+        assertEq(f.last, {val:5, sign:-1});
+      }},
+
+    { group:'面值翻面（§2.1）', name:'倒位 (a,b) → first=-b, last=+a', ref:'§2.1',
+      run(){
+        const f = faceOf({ a:3, b:5, orient:'reversed' });
+        assertEq(f.first, {val:5, sign:-1});
+        assertEq(f.last, {val:3, sign:1});
+      }},
+
+    /* ===== resolvePierce 单元 ===== */
+    { group:'贯穿算法（§4）', name:'无贯穿：正常输入透传', ref:'§4',
+      run(){
+        const r = resolvePierce(3, 4);
+        assertEq({pos:r.pos, neg:r.neg, n:r.pierce.length}, {pos:3, neg:4, n:0});
+      }},
+
+    { group:'贯穿算法（§4）', name:'单边贯穿：(-2, 7) → (0, 9)', ref:'§4.1',
+      run(){
+        const r = resolvePierce(-2, 7);
+        assertEq({pos:r.pos, neg:r.neg}, {pos:0, neg:9});
+      }},
+
+    { group:'贯穿算法（§4）', name:'双边贯穿：(-5, -3) → (3, 5)', ref:'§4.3',
+      run(){
+        const r = resolvePierce(-5, -3);
+        assertEq({pos:r.pos, neg:r.neg}, {pos:3, neg:5}, '同时清零、溢出加到对侧');
+      }},
+
+    { group:'贯穿算法（§4）', name:'极端双边：(-9, -9) → (9, 9)', ref:'§4 推论',
+      run(){
+        const r = resolvePierce(-9, -9);
+        assertEq({pos:r.pos, neg:r.neg}, {pos:9, neg:9}, '双轴都触顶 → 失败');
+      }},
+
+    /* ===== 双牌同时贯穿（端到端） ===== */
+    { group:'综合', name:'§4.3 端到端：simulatePlay 双向贯穿', ref:'§4.3 + simulatePlay',
+      run(){
+        G.pos = 1; G.neg = 1; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.executeStacks = 0; G.nextTurnEffectDouble = false; G.nextTurnFeeBonus = 0;
+        // (+0,-5): a=0,b=5,up; (+1,-6): a=1,b=6,up
+        const sim = simulatePlay([
+          { id:'_synthetic', a:0, b:5, orient:'upright', uid:'sa' },
+          { id:'_synthetic', a:1, b:6, orient:'upright', uid:'sb' },
+        ]);
+        assertEq({pos:sim.pos, neg:sim.neg}, {pos:3, neg:5}, '端到端也应得 3,5');
+      }},
+  ];
+
+  return tests;
+}
+
+/* =========================================================
+   运行器
+   ========================================================= */
+function runTests(GM){
+  const tests = buildTests(GM);
+  const groups = {};
+  tests.forEach(t => { (groups[t.group] = groups[t.group] || []).push(t); });
+
+  let pass = 0, fail = 0;
+  const resultsEl = document.getElementById('results');
+  resultsEl.innerHTML = '';
+
+  for(const groupName in groups){
+    const groupEl = document.createElement('div');
+    groupEl.className = 'group';
+    const head = document.createElement('div');
+    head.className = 'groupT';
+    head.innerHTML = `<span>${groupName}</span><span class="count"></span>`;
+    groupEl.appendChild(head);
+
+    let gPass = 0, gFail = 0;
+    for(const t of groups[groupName]){
+      const caseEl = document.createElement('div');
+      caseEl.className = 'case';
+      try{
+        t.run();
+        caseEl.classList.add('ok');
+        caseEl.innerHTML = `<span class="marker">✓</span><span class="desc">${t.name}</span><span class="ref">${t.ref||''}</span>`;
+        gPass++; pass++;
+      } catch(e){
+        caseEl.classList.add('bad');
+        caseEl.innerHTML = `<span class="marker">✗</span><span class="desc">${t.name}</span><span class="ref">${t.ref||''}</span>
+          <div class="err">${escapeHtml(e.message||String(e))}</div>`;
+        gFail++; fail++;
+      }
+      groupEl.appendChild(caseEl);
+    }
+    head.querySelector('.count').textContent = `${gPass} 通过 / ${gFail} 失败`;
+    resultsEl.appendChild(groupEl);
+  }
+
+  const total = pass + fail;
+  const num = document.getElementById('sumNum');
+  const txt = document.getElementById('sumText');
+  num.textContent = `${pass} / ${total}`;
+  num.className = fail===0 ? 'num ok' : 'num bad';
+  txt.textContent = fail===0
+    ? `✓ 全部通过 —— 实现与设计文档一致`
+    : `${fail} 个测试失败，${pass} 个通过。`;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+  ));
+}
+
+/* =========================================================
+   加载 iframe 后运行
+   ========================================================= */
+document.getElementById('gameFrame').addEventListener('load', () => {
+  try{
+    const W = document.getElementById('gameFrame').contentWindow;
+    if(!W.__GAME){
+      document.getElementById('sumText').textContent =
+        '✗ 无法访问 window.__GAME —— 请确保用 HTTP 服务器或 GitHub Pages 打开。';
+      document.getElementById('sumNum').className = 'num bad';
+      return;
+    }
+    runTests(W.__GAME);
+  } catch(e){
+    document.getElementById('sumText').textContent = '✗ 运行失败：' + e.message;
+    document.getElementById('sumNum').className = 'num bad';
+  }
+});
+</script>
+</body>
+</html>
