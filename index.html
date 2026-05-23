@@ -187,25 +187,34 @@
   .eShieldBadge{display:inline-block;background:var(--ok-bg);color:var(--ok);border-radius:5px;padding:2px 7px;
     font-size:11.5px;margin-left:6px;font-weight:600}
 
-  /* 数轴 —— 两条横向数轴，上正下负 */
-  #axisPanel{padding:20px 18px 14px;margin-bottom:14px}
-  .axisTitle{font-size:12px;color:var(--muted);margin-bottom:18px;display:flex;
+  /* 数轴 —— 两条竖直数轴并排，0 在底、9 在顶 */
+  #axisPanel{padding:18px 16px 14px;margin-bottom:14px}
+  .axisTitle{font-size:12px;color:var(--muted);margin-bottom:14px;display:flex;
     justify-content:space-between;gap:8px;flex-wrap:wrap;line-height:1.5}
-  .axisPair{display:flex;flex-direction:column;gap:14px;margin:0 4px}
-  .axisRow{display:flex;align-items:center;gap:12px}
+  .axisPair{
+    display:flex;flex-direction:row;gap:36px;justify-content:center;
+    margin:8px 0 4px;
+  }
+  .axisRow{
+    display:flex;flex-direction:column;align-items:center;gap:8px;
+    width:96px;
+  }
+  .axisRow .axisHead{
+    display:flex;flex-direction:column;align-items:center;gap:4px;min-height:24px;
+  }
   .axisRow .label{
-    font-size:10.5px;font-weight:600;min-width:50px;text-align:right;
-    letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);
+    font-size:10.5px;font-weight:600;text-align:center;
+    letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);
   }
   .axisRow.pos .label{color:var(--pos)}
   .axisRow.neg .label{color:var(--neg)}
   .axisRow .shieldChip{
-    font-size:10.5px;background:var(--ok-bg);color:var(--ok);
-    border-radius:4px;padding:2px 6px;font-weight:600;margin-left:-4px;
+    font-size:10px;background:var(--ok-bg);color:var(--ok);
+    border-radius:4px;padding:1px 6px;font-weight:600;
     border:1px solid rgba(22,121,79,.2);
   }
   .track{
-    position:relative;flex:1;height:32px;
+    position:relative;width:32px;height:220px;
     background:var(--bg);
     border:1px solid var(--line);
     border-radius:var(--radius-sm);
@@ -213,32 +222,39 @@
     box-shadow:inset 0 1px 2px rgba(0,0,0,.04);
   }
   .fill{
-    position:absolute;left:0;top:0;bottom:0;
-    border-radius:5px 0 0 5px;
-    transition:width .45s cubic-bezier(.4,0,.2,1);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.15);
+    position:absolute;left:0;right:0;bottom:0;
+    border-radius:0 0 5px 5px;
+    transition:height .45s cubic-bezier(.4,0,.2,1);
+    box-shadow:inset 0 -1px 0 rgba(0,0,0,.08), inset 1px 0 0 rgba(255,255,255,.15);
   }
-  .axisRow.pos .fill{background:linear-gradient(180deg,#2a85d4,var(--pos))}
-  .axisRow.neg .fill{background:linear-gradient(180deg,#dc4a4a,var(--neg))}
+  .axisRow.pos .fill{background:linear-gradient(180deg,#5ea5db,var(--pos))}
+  .axisRow.neg .fill{background:linear-gradient(180deg,#e57272,var(--neg))}
   .ghostFill{
-    position:absolute;top:0;bottom:0;
+    position:absolute;left:0;right:0;
     background:rgba(0,0,0,.10);
     border:1px dashed rgba(0,0,0,.4);
     border-radius:3px;pointer-events:none;
   }
   .tickG{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none}
-  .tickG .t{position:absolute;top:0;bottom:0;width:1px;background:rgba(0,0,0,.10)}
-  .tickG .t.major{background:rgba(0,0,0,.25);width:1px}
-  .tickG .t.danger{background:var(--danger);width:1.5px;opacity:.55}
-  .tickG .lbl{position:absolute;top:50%;transform:translateX(-50%) translateY(-50%);
-    font-size:9.5px;color:#000;opacity:.4;font-weight:600;font-variant-numeric:tabular-nums}
+  .tickG .t{position:absolute;left:0;right:0;height:1px;background:rgba(0,0,0,.10)}
+  .tickG .t.major{background:rgba(0,0,0,.25);height:1px}
+  .tickG .t.danger{background:var(--danger);height:1.5px;opacity:.55}
+  .tickG .lbl{
+    position:absolute;left:calc(100% + 6px);
+    transform:translateY(50%);
+    font-size:9.5px;color:#000;opacity:.45;font-weight:600;
+    font-variant-numeric:tabular-nums;line-height:1;
+  }
   .axisRow .value{
-    min-width:64px;text-align:left;font-size:18px;font-weight:600;
-    font-variant-numeric:tabular-nums;letter-spacing:-0.02em;
+    text-align:center;font-size:24px;font-weight:600;
+    font-variant-numeric:tabular-nums;letter-spacing:-0.02em;line-height:1;
   }
   .axisRow.pos .value{color:var(--pos)}
   .axisRow.neg .value{color:var(--neg)}
-  .axisRow .value .delta{font-size:12px;font-weight:500;color:var(--muted);margin-left:4px}
+  .axisRow .value .delta{
+    display:block;font-size:11px;font-weight:600;
+    color:var(--muted);margin-top:3px;letter-spacing:0;
+  }
   .axisRow .value .delta.up{color:var(--danger)}
   .axisRow .value .delta.dn{color:var(--ok)}
   .statusBar{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--muted);
@@ -1064,32 +1080,34 @@ function renderDomino(card){
   </div>`;
 }
 
-/* 单条数轴：传入数值（0-9）+ 预览数值 */
+/* 单条数轴：传入数值（0-9）+ 预览数值（竖直版：0 在底、9 在顶） */
 function renderAxisRow(sign, value, ghost){
   const pct = Math.max(0, Math.min(100, value/9*100));
   const gPct = ghost!=null ? Math.max(0, Math.min(100, ghost/9*100)) : null;
   let ticks = '';
   for(let i=0;i<=9;i++){
-    const x = i/9*100;
+    const y = i/9*100;  // 距离底部的百分比
     const cls = i===0||i===9?'major':(i>=8?'danger':'');
-    ticks += `<div class="t ${cls}" style="left:${x}%"></div>`;
-    if(i%3===0 || i>=8) ticks += `<div class="lbl" style="left:${x}%">${i}</div>`;
+    ticks += `<div class="t ${cls}" style="bottom:${y}%"></div>`;
+    if(i%3===0 || i>=8) ticks += `<div class="lbl" style="bottom:${y}%">${i}</div>`;
   }
   let ghostHtml = '';
   if(gPct!=null && Math.abs(gPct-pct)>0.5){
-    const left = Math.min(pct,gPct), w = Math.abs(gPct-pct);
-    ghostHtml = `<div class="ghostFill" style="left:${left}%;width:${w}%"></div>`;
+    const bottom = Math.min(pct,gPct), h = Math.abs(gPct-pct);
+    ghostHtml = `<div class="ghostFill" style="bottom:${bottom}%;height:${h}%"></div>`;
   }
   const sh = G.shields[sign] || 0;
   const shieldChip = sh>0 ? `<span class="shieldChip">🛡${sh}</span>` : '';
   const dlt = ghost!=null && ghost!==value
     ? `<span class="delta ${ghost>value?'up':'dn'}">→ ${ghost}</span>` : '';
   return `<div class="axisRow ${sign}">
-    <div class="label">${sign==='pos'?'正轴':'负轴'}</div>
-    ${shieldChip}
+    <div class="axisHead">
+      <div class="label">${sign==='pos'?'正轴':'负轴'}</div>
+      ${shieldChip}
+    </div>
     <div class="track">
       <div class="tickG">${ticks}</div>
-      <div class="fill" style="width:${pct}%"></div>
+      <div class="fill" style="height:${pct}%"></div>
       ${ghostHtml}
     </div>
     <div class="value">${value}${dlt}</div>
@@ -1110,7 +1128,16 @@ function render(preview){
   $('eIntent').textContent = '⚔ 敌方意图：' + intentText() + (G.cycle>0?`（轮次压力额外 +${G.cycle}）`:'');
   $('bTurn').textContent = '回合 ' + G.turn;
   $('axisState').textContent = `正轴 +${G.pos} ｜ 负轴 −${G.neg}`;
-  renderAxis(preview);
+  // 若调用者没传 ghost，但有选中的牌，就用 simulatePlay 算一遍 ghost
+  let g = preview;
+  if(!g && !G.over && G.sel.length > 0){
+    const cards = selectedCards();
+    if(cards.length > 0){
+      const sim = simulatePlay(cards);
+      g = {pos: Math.min(sim.pos, 9), neg: Math.min(sim.neg, 9)};
+    }
+  }
+  renderAxis(g);
   const debuffStr = G.debuffNextTurn ? ' · ⚠ <b>下回合数轴变化+1</b>' : '';
   const bonusStr = G.nextTurnFeeBonus>0 || G.nextTurnEffectDouble
     ? ` · ✨ <b>00 加成生效中</b>` : '';
