@@ -1,0 +1,884 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>数轴卡牌 · 规则模拟器</title>
+<style>
+  :root{
+    --bg:#f4f1ea; --panel:#ffffff; --ink:#1c1b18; --muted:#6f6a60;
+    --line:#d8d2c4; --pos:#2f6fb0; --neg:#c0492f; --gold:#b08a3c;
+    --danger:#d23b2a; --ok:#3a7d44; --shadow:0 2px 8px rgba(0,0,0,.10);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:18px 16px 60px}
+  h1{font-size:20px;letter-spacing:.5px}
+  .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
+  .hidden{display:none!important}
+  button{font-family:inherit;cursor:pointer}
+
+  /* ---- 开始界面 ---- */
+  #start .enemyGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
+  .enemyCard{padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--panel);
+    cursor:pointer;transition:.15s;box-shadow:var(--shadow)}
+  .enemyCard:hover{transform:translateY(-2px);border-color:var(--gold)}
+  .enemyCard h3{font-size:15px}
+  .enemyCard .role{font-size:12px;color:var(--gold);margin:2px 0 6px}
+  .enemyCard .mech{font-size:12.5px;color:var(--muted)}
+  .enemyCard .quote{font-size:12px;font-style:italic;color:#8a8478;margin-top:8px;border-left:3px solid var(--line);padding-left:8px}
+
+  /* ---- 战斗布局 ---- */
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .ghost{background:none;border:1px solid var(--line);border-radius:7px;padding:6px 12px;font-size:13px;color:var(--muted)}
+
+  /* 敌人 */
+  #enemyPanel{padding:14px 16px;margin-bottom:12px}
+  .enemyHead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .enemyHead h2{font-size:17px}
+  .enemyHead .role{font-size:12px;color:var(--gold)}
+  .hpbar{height:18px;background:#ece4d4;border-radius:9px;overflow:hidden;margin:8px 0 6px;border:1px solid var(--line)}
+  .hpfill{height:100%;background:linear-gradient(90deg,#c0492f,#d97b4a);transition:width .4s}
+  .enemyMeta{font-size:12.5px;color:var(--muted)}
+  .intent{margin-top:8px;font-size:13px;background:#fbf6e9;border:1px dashed var(--gold);
+    border-radius:7px;padding:6px 10px;color:#7a5e1f}
+
+  /* 数轴 */
+  #axisPanel{padding:18px 16px 12px;margin-bottom:12px}
+  .axisTitle{font-size:13px;color:var(--muted);margin-bottom:14px;display:flex;justify-content:space-between}
+  .axis{position:relative;height:74px;margin:0 6px}
+  .axisLine{position:absolute;top:46px;left:0;right:0;height:4px;background:var(--line);border-radius:2px}
+  .tick{position:absolute;top:40px;width:2px;height:16px;background:#cdc6b6;transform:translateX(-1px)}
+  .tick.zero{height:30px;top:33px;width:3px;background:#9a9382}
+  .tick.danger{background:var(--danger)}
+  .ticklabel{position:absolute;top:60px;font-size:10px;color:var(--muted);transform:translateX(-50%)}
+  .ticklabel.zero{font-weight:700;color:var(--ink)}
+  .marker{position:absolute;top:6px;width:34px;height:34px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;
+    transform:translateX(-50%);transition:left .45s cubic-bezier(.4,1.2,.5,1);box-shadow:var(--shadow);z-index:3}
+  .marker.pos{background:var(--pos)}
+  .marker.neg{background:var(--neg)}
+  .marker.ghost2{opacity:.38;top:6px;transition:none;z-index:2}
+  .axisEnds{display:flex;justify-content:space-between;font-size:11px;color:var(--danger);margin-top:2px;padding:0 2px}
+
+  /* 预览（出牌演算） */
+  #preview{padding:0;margin-bottom:12px;font-size:13px;overflow:hidden}
+  #preview .ph{display:block;padding:16px;color:var(--muted)}
+  .pvHead{background:#f0ebdf;padding:8px 14px;font-size:12px;color:var(--muted);font-weight:700}
+  .pvSec{padding:10px 14px;border-top:1px solid var(--line)}
+  .pvSecT{font-size:12.5px;font-weight:700;color:var(--gold);margin-bottom:7px}
+  .pvNote{font-size:12.5px;background:#fbf6e9;border-left:3px solid var(--gold);
+    padding:5px 9px;margin-bottom:7px;color:#7a5e1f;border-radius:0 5px 5px 0}
+  .pvLine{padding:3px 0 3px 6px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .pvPierce{margin-top:6px;padding:6px 9px;background:#fbece8;border:1px solid #e3b8ab;
+    border-radius:6px;color:var(--danger);font-weight:700}
+  .pvCombo{margin-top:6px;padding:6px 9px;background:#fbf3df;border:1px solid var(--gold);
+    border-radius:6px;color:#7a5e1f;font-weight:700}
+  .pvResult{padding:11px 14px;border-top:2px solid var(--line);background:#fcfaf4}
+  .pvAxis{font-size:14px;margin-bottom:5px}
+  .tagPos{color:var(--pos);font-weight:700}
+  .tagNeg{color:var(--neg);font-weight:700}
+  .pvDmg{font-size:13px;font-weight:700;color:var(--neg);margin-bottom:5px}
+  .pvSum{font-size:12.5px;padding:6px 9px;border-radius:6px;background:#eef0ea;color:var(--muted)}
+  .pvSum.ok{background:#eef3ee;color:var(--ok)}
+  .pvSum.warn{background:#fbf3df;color:#7a5e1f}
+  .pvSum.bad{background:#fbece8;color:var(--danger);font-weight:700}
+
+  /* 手牌 */
+  .handWrap{padding:12px 14px;margin-bottom:12px}
+  .handTitle{font-size:13px;color:var(--muted);margin-bottom:10px}
+  .hand{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .domino{width:84px;border:1px solid var(--line);border-radius:9px;background:#fffef9;
+    cursor:pointer;transition:.13s;box-shadow:var(--shadow);overflow:hidden;position:relative}
+  .domino:hover{transform:translateY(-3px)}
+  .domino.sel{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
+  .domino.disabled{opacity:.4;pointer-events:none}
+  .dHalf{height:54px;display:flex;align-items:center;justify-content:center;position:relative}
+  .dHalf.top{border-bottom:1px solid var(--line)}
+  .pipgrid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);
+    width:38px;height:38px;gap:2px}
+  .pip{width:8px;height:8px;border-radius:50%;background:var(--ink);margin:auto}
+  .pip.off{background:transparent}
+  .dBadge{font-size:10.5px;text-align:center;padding:3px 0;font-weight:700}
+  .dBadge.up{background:#eaf1f8;color:var(--pos)}
+  .dBadge.rev{background:#f8ece8;color:var(--neg)}
+  .dFace{font-size:11px;text-align:center;color:var(--muted);padding:3px 2px 5px;border-top:1px solid var(--line)}
+  .selOrder{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;
+    background:var(--gold);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700}
+
+  /* 操作按钮 */
+  .actions{display:flex;gap:10px;justify-content:center;margin-bottom:12px;flex-wrap:wrap}
+  .btn{border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:700;color:#fff}
+  .btn.play{background:var(--pos)}
+  .btn.play:disabled{background:#b7c3cd;cursor:not-allowed}
+  .btn.skip{background:#8a8478}
+  .btn.skill{background:var(--gold)}
+  .btn.skill:disabled{background:#d6cdb5;cursor:not-allowed}
+
+  /* 日志 */
+  #log{padding:10px 14px;font-size:12.5px;max-height:160px;overflow-y:auto}
+  #log .e{padding:3px 0;border-bottom:1px dotted var(--line)}
+  #log .e:last-child{border:none}
+  #log .turn{color:var(--gold);font-weight:700}
+  #log .dmg{color:var(--neg)}
+  #log .good{color:var(--ok)}
+  #log .bad{color:var(--danger);font-weight:700}
+
+  /* 新手教学 */
+  .tutStart{display:block;width:100%;margin-top:16px;padding:16px;border:none;border-radius:10px;
+    background:linear-gradient(90deg,#b08a3c,#caa45a);color:#fff;font-size:16px;font-weight:700;
+    box-shadow:var(--shadow)}
+  .tutStart:hover{filter:brightness(1.06)}
+  .simpleBadge{display:inline-block;font-size:10.5px;background:var(--ok);color:#fff;
+    border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:middle}
+  #tutBanner{background:#fbf3df;border:2px solid var(--gold);border-radius:10px;
+    padding:14px 16px;margin-bottom:12px;display:flex;gap:12px;align-items:center}
+  .tutText{flex:1;font-size:14px;color:#5f4a18;line-height:1.75}
+  .tutBtn{background:var(--gold);color:#fff;border:none;border-radius:8px;
+    padding:10px 16px;font-size:13px;font-weight:700;white-space:nowrap}
+
+  /* 结算 */
+  #overlay{position:fixed;inset:0;background:rgba(20,18,14,.72);display:flex;
+    align-items:center;justify-content:center;z-index:50}
+  #overlay .box{background:var(--panel);border-radius:12px;padding:28px 34px;text-align:center;max-width:380px}
+  #overlay h2{font-size:24px;margin-bottom:8px}
+  #overlay p{color:var(--muted);font-size:13px;margin-bottom:16px}
+  .note{font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ================= 开始界面 ================= -->
+  <div id="start">
+    <h1>数轴卡牌 · 规则模拟器</h1>
+    <div class="sub">借多米诺骨牌之形 · 在一条 0~±9 的数轴上做正负博弈。</div>
+    <button class="tutStart" id="btnTutorial">▶ 第一次玩？点这里 · 手把手新手教学</button>
+    <div class="sub" style="margin-top:18px">或直接挑战对手（建议先打绿标的「初窥门径的学徒」）：</div>
+    <div class="enemyGrid" id="enemyGrid"></div>
+    <div class="note">
+      规则速记 ——
+      数轴两端任意一侧到 <b>±9</b> 即失败；到 <b>±8</b> 解锁觉醒技。
+      正位牌＝进攻（伤害敌人），倒位牌＝回稳（拉回数轴）。
+      每张牌的两个数字会按规则推动你的数轴。两张牌首位数字相同则触发<b>连击</b>。
+    </div>
+  </div>
+
+  <!-- ================= 战斗界面 ================= -->
+  <div id="battle" class="hidden">
+    <div class="topbar">
+      <div><h1 id="bTitle">战斗</h1><div class="sub" id="bTurn">回合 1</div></div>
+      <button class="ghost" id="btnQuit">← 换对手</button>
+    </div>
+
+    <div id="tutBanner" class="hidden">
+      <div class="tutText" id="tutText"></div>
+      <button class="tutBtn" id="tutBtn">知道了</button>
+    </div>
+
+    <div class="panel" id="enemyPanel">
+      <div class="enemyHead">
+        <h2 id="eName">敌人</h2><span class="role" id="eRole"></span>
+      </div>
+      <div class="hpbar"><div class="hpfill" id="eHpFill"></div></div>
+      <div class="enemyMeta"><b>血量</b> <span id="eHpText"></span> · <b>机制</b> <span id="eMech"></span></div>
+      <div class="intent" id="eIntent"></div>
+    </div>
+
+    <div class="panel" id="axisPanel">
+      <div class="axisTitle">
+        <span>你的数轴（费用即生命 · 任意一侧到 ±9 失败）</span>
+        <span id="axisState"></span>
+      </div>
+      <div class="axis" id="axis"></div>
+      <div class="axisEnds"><span>−9 失败</span><span>+9 失败</span></div>
+    </div>
+
+    <div class="panel" id="preview"><span class="ph">从下方手牌中选择 1~2 张，这里会演算结果。</span></div>
+
+    <div class="panel handWrap">
+      <div class="handTitle">手牌（点击选择，最多 2 张）</div>
+      <div class="hand" id="hand"></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn play" id="btnPlay" disabled>确认出牌</button>
+      <button class="btn skip" id="btnSkip">跳过本回合</button>
+      <button class="btn skill" id="btnSkill" disabled>觉醒技 · 归元（±8解锁）</button>
+    </div>
+
+    <div class="panel" id="log"></div>
+  </div>
+
+</div>
+
+<!-- ================= 结算遮罩 ================= -->
+<div id="overlay" class="hidden">
+  <div class="box">
+    <h2 id="ovTitle"></h2>
+    <p id="ovText"></p>
+    <button class="btn play" id="ovBtn">返回选择对手</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================
+   一、卡牌与数轴模型
+   - 数轴：posMag / negMag 各为 0~9 的“量”，分据基线 0 两侧。
+   - 牌面 (±a,±b)：a、b 均为 0~6，符号只表示正位/倒位。
+   - 正位牌面 = (+a,-b)，首位是 a，主轴=正轴。
+   - 倒位牌面 = (-b,+a)，首位是 b，主轴=负轴。
+   ========================================================= */
+
+// 生成 28 张多米诺牌（0~6 的无序对）
+function buildDeck(){
+  const deck=[];
+  for(let a=0;a<=6;a++) for(let b=a;b<=6;b++) deck.push({a,b});
+  return deck;
+}
+
+// 取一张牌在某朝向下的“牌面”
+function faceOf(card){
+  if(card.orient==='upright'){
+    return {first:{val:card.a,sign:+1}, last:{val:card.b,sign:-1}};
+  } else {
+    return {first:{val:card.b,sign:-1}, last:{val:card.a,sign:+1}};
+  }
+}
+const power = c => c.a + c.b;          // 牌面效果强度＝两端点数之和
+const hasBigPip = c => c.a>=5||c.b>=5||c.a===6||c.b===6; // 含 5/6 点数
+
+/* ---- 贯穿结算：某侧穿过基线 0 后，溢出量翻到对侧；至多两次 ---- */
+function resolvePierce(pos,neg){
+  let guard=0; const pierce=[];
+  while((pos<0||neg<0)&&guard<2){
+    guard++;
+    if(pos<0){ const ov=-pos; pos=0; neg+=ov;
+      pierce.push(`正轴被减到 0 以下，穿过基线 —— 多出的 ${ov} 翻面贯穿到负轴（负轴 +${ov}）`); }
+    if(neg<0){ const ov=-neg; neg=0; pos+=ov;
+      pierce.push(`负轴被减到 0 以下，穿过基线 —— 多出的 ${ov} 翻面贯穿到正轴（正轴 +${ov}）`); }
+  }
+  return {pos,neg,pierce};
+}
+
+/* ---- 单牌：首位与主轴相加，末位与次轴相减 ---- */
+function calcSingle(pos,neg,card){
+  const f=faceOf(card);
+  const mainIsPos=f.first.sign>0;
+  const mainNote=`这张牌首位是 ${mainIsPos?'+':'−'}${f.first.val}（${mainIsPos?'正':'负'}号）→ ${mainIsPos?'正轴':'负轴'} 当主轴，另一条当次轴。`;
+  const num=[];
+  let p=pos,n=neg;
+  if(mainIsPos){
+    p+=f.first.val; n-=f.last.val;
+    num.push(`主轴(正)：${pos} ＋ ${f.first.val} ＝ ${p}`);
+    num.push(`次轴(负)：${neg} − ${f.last.val} ＝ ${n}`);
+  } else {
+    n+=f.first.val; p-=f.last.val;
+    num.push(`主轴(负)：${neg} ＋ ${f.first.val} ＝ ${n}`);
+    num.push(`次轴(正)：${pos} − ${f.last.val} ＝ ${p}`);
+  }
+  const r=resolvePierce(p,n);
+  return {pos:r.pos,neg:r.neg,num,pierce:r.pierce,mainNote};
+}
+
+/* ---- 双牌：交叉相减 ----
+   计算结果1 = 牌1首位 − 牌2末位 → 与主轴相加
+   计算结果2 = 牌1末位 − 牌2首位 → 与次轴相减
+   主轴由牌1首位符号决定。结果可为负，保留原始值。            */
+function calcDouble(pos,neg,c1,c2){
+  const f1=faceOf(c1), f2=faceOf(c2);
+  const r1=f1.first.val - f2.last.val;   // 计算结果1
+  const r2=f1.last.val  - f2.first.val;  // 计算结果2
+  const mainIsPos=f1.first.sign>0;
+  const mainNote=`牌1首位是 ${mainIsPos?'+':'−'}${f1.first.val}（${mainIsPos?'正':'负'}号）→ ${mainIsPos?'正轴':'负轴'} 当主轴，另一条当次轴。`;
+  const num=[];
+  num.push(`交叉① ＝ 牌1首位 ${f1.first.val} − 牌2末位 ${f2.last.val} ＝ ${r1}`);
+  num.push(`交叉② ＝ 牌1末位 ${f1.last.val} − 牌2首位 ${f2.first.val} ＝ ${r2}`);
+  let p=pos,n=neg;
+  if(mainIsPos){
+    p+=r1; n-=r2;
+    num.push(`主轴(正)：${pos} ＋ (${r1}) ＝ ${p}`);
+    num.push(`次轴(负)：${neg} − (${r2}) ＝ ${n}`);
+  } else {
+    n+=r1; p-=r2;
+    num.push(`主轴(负)：${neg} ＋ (${r1}) ＝ ${n}`);
+    num.push(`次轴(正)：${pos} − (${r2}) ＝ ${p}`);
+  }
+  const r=resolvePierce(p,n);
+  return {pos:r.pos,neg:r.neg,num,pierce:r.pierce,mainNote};
+}
+
+/* ---- 连击：两张牌首位数字相同 → 触发，连击号=该数字 ---- */
+function comboNumber(c1,c2){
+  const v1=faceOf(c1).first.val, v2=faceOf(c2).first.val;
+  return v1===v2 ? v1 : null;
+}
+// 0~6 七种纯正面连击效果（取意自设计文档对数字的赋义）
+const COMBO=[
+  {n:0,name:'奇点·循环', desc:'弃掉手牌并重抽 5 张'},
+  {n:1,name:'神性·独立', desc:'对敌方造成 8 点额外伤害'},
+  {n:2,name:'和谐·平衡', desc:'正负数轴各向 0 拉回 2'},
+  {n:3,name:'三位·生机', desc:'额外造成 6 伤害，并回稳 3'},
+  {n:4,name:'物质·秩序', desc:'抵消本次出牌对数轴的全部变化'},
+  {n:5,name:'精神·规律', desc:'敌方下回合的攻击被免除'},
+  {n:6,name:'终极·完美', desc:'对敌方造成 12 点毁灭伤害'},
+];
+
+/* =========================================================
+   二、敌人定义（取自设计文档，机制简化）
+   ========================================================= */
+const ENEMIES=[
+  {
+    id:'apprentice', name:'初窥门径的学徒', role:'The Apprentice', simple:true,
+    hp:36, quote:'“我也还在学……我们慢慢来，好不好？”',
+    mech:'无特殊机制。每回合只把随机一侧 +1，是最温和的对手。',
+    hint:'适合第一次实战：专心感受「正位进攻 / 倒位回稳」的来回节奏即可。',
+    push(g){ if(Math.random()<.5)g.pos+=1; else g.neg+=1; return '随机一侧 +1'; },
+    intentText(){ return '下回合：随机一侧 +1（很轻微）。'; },
+  },
+  {
+    id:'surgeon', name:'提灯的拾骨者', role:'The Triage Surgeon',
+    hp:48, quote:'“为什么你总是妄想两全其美？”',
+    mech:'临床分诊：负数轴被锁定，倒位牌的「回稳」无法减少负数轴。每回合负数轴 +2。',
+    hint:'顺从＝靠数字运算压低负轴；我行我素＝无视它、强攻速杀。',
+    push(g){ g.neg+=2; return '负数轴 +2（强行分诊）'; },
+    intentText(){ return '下回合：负数轴 +2，且锁定其回稳。'; },
+    lockNeg:true,
+  },
+  {
+    id:'homeo', name:'追求动态平衡的持秤者', role:'The Homeostatic',
+    hp:52, quote:'“偏科是疾病的开始。唯有均衡，方得长久。”',
+    mech:'天平之罚：每回合攻击 = 2 + |正轴−负轴|，数轴越不平衡，它打得越重。',
+    hint:'顺从＝把两轴拉到接近齐平；我行我素＝放任失衡、硬吃高额惩罚。',
+    push(g){ const d=Math.abs(g.pos-g.neg); const amt=2+d;
+      if(g.pos<=g.neg) g.pos+=amt; else g.neg+=amt;
+      return `较小一侧 +${amt}（基础2 ＋ 失衡差值${d}）`; },
+    intentText(g){ const d=Math.abs(g.pos-g.neg);
+      return `下回合：较小一侧 +${2+d}（含失衡差值 ${d}）。`; },
+  },
+  {
+    id:'ascetic', name:'厌恶喧哗的苦行僧', role:'The Ascetic',
+    hp:50, quote:'“声音太大了。你们的狂热吵得我头疼。”',
+    mech:'噪音税：你每打出一张含 5 或 6 点数的牌，苦行僧回复 8 点血量。每回合随机一侧 +2。',
+    hint:'顺从＝只用 0~4 的小数字精细微调；我行我素＝照样大数轰炸、用速度压过回血。',
+    push(g){ if(Math.random()<.5)g.pos+=2; else g.neg+=2; return '随机一侧 +2'; },
+    intentText(){ return '下回合：随机一侧 +2。打出含5/6的牌会让它回血。'; },
+  },
+  {
+    id:'zealot', name:'崇尚极化的狂热煽动者', role:'The Zealot',
+    hp:58, quote:'“中立是最虚伪的谎言。要么爱我，要么恨我！”',
+    mech:'狂热护盾：只要你两条数轴都 < 6，它受到的伤害减半（向下取整）。每回合随机一侧 +2。',
+    hint:'顺从＝主动把一侧推进高危区(≥6)破盾、刀尖舔血；我行我素＝死守安全区、靠零碎伤害磨。',
+    push(g){ if(Math.random()<.5)g.pos+=2; else g.neg+=2; return '随机一侧 +2'; },
+    intentText(){ return '下回合：随机一侧 +2。两轴都<6 时它伤害减半。'; },
+  },
+];
+
+// 教学专用木偶：不会反击，让玩家零压力练习
+const PUPPET={
+  id:'puppet', name:'稻草傀儡 · 教学木偶', role:'Training Dummy',
+  hp:34, quote:'',
+  mech:'教学木偶——它不会反击，你不可能输。放心试。',
+  hint:'',
+  push(g){ return null; },
+  intentText(){ return '它静静站着，不会行动。'; },
+};
+
+// 新手教学脚本：text=讲解, btn=按钮文字, await=等待玩家完成某动作
+const TUT=[
+  {text:'<b>欢迎！</b>你扮演一位神，战斗发生在一条数轴上。看上方面板中间那条横线——左边红点、右边蓝点，就是你的数轴，现在都停在 0。任何一个点滑到最边上的 ±9，你就输了。',btn:'知道了'},
+  {text:'看最下方的<b>手牌</b>。每张牌是一块多米诺骨牌，有上下两个数字。牌上标着蓝色「正位·进攻」或红色「倒位·回稳」——朝向是抽牌时随机决定的，你只能选用哪张。',btn:'知道了'},
+  {text:'<b>动手试试：</b>点一张标着蓝色「正位·进攻」的牌，把它选中（边框会变金色）。',await:'selUpright'},
+  {text:'选好了！看中间的<b>「预演」框</b>——它已经替你算好：这张牌会把数轴移到哪、对敌人造成多少伤害。数轴上半透明的点就是预估落点。<b>你永远不需要自己心算。</b>',btn:'知道了'},
+  {text:'现在点绿色的<b>「确认出牌」</b>按钮，把这张牌打出去。',await:'play'},
+  {text:'看到了吗——敌人掉血了，你的数轴也动了一下。<b>正位牌能打伤害，代价是它的数字会把数轴推向危险区。</b>',btn:'知道了'},
+  {text:'<b>再试一次：</b>这次选一张红色「倒位·回稳」的牌。',await:'selReversed'},
+  {text:'倒位牌不攻击，但它会把数轴往中间的 0 拉回来——这就是你的「回血」。<b>在进攻和回稳之间找平衡，就是这个游戏的全部。</b>现在点「确认出牌」。',await:'play'},
+  {text:'最后一个概念：如果你一次选<b>两张</b>牌，而且它们朝上的第一个数字相同，会触发<b>「连击」</b>——一个纯奖励、无代价的效果。看到能连击就尽管用。',btn:'知道了'},
+  {text:'<b>教学结束！</b>这个木偶不会反击，你可以放心把它打倒、随便试。准备好之后，点右上角「换对手」，去挑战绿标的「初窥门径的学徒」——一个很温柔的新手对手。',btn:'完成教学'},
+];
+
+/* =========================================================
+   三、游戏状态与流程
+   ========================================================= */
+const G={
+  enemy:null, eHp:0, pos:0, neg:0, turn:1,
+  deck:[], discard:[], hand:[], sel:[],
+  skillUsed:false, skipEnemyOnce:false, over:false,
+  tutorial:false, tutIdx:0,
+};
+
+const $=id=>document.getElementById(id);
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+function drawCard(){
+  if(G.deck.length===0){ G.deck=shuffle(G.discard); G.discard=[]; }
+  if(G.deck.length===0) return null;
+  const c=G.deck.pop();
+  c.orient = Math.random()<.5 ? 'upright' : 'reversed'; // 每次抽到随机正/倒位
+  c.uid = Math.random().toString(36).slice(2,8);
+  return c;
+}
+function refillHand(){
+  while(G.hand.length<5){
+    const c=drawCard();
+    if(!c) break;
+    G.hand.push(c);
+  }
+}
+
+/* ---- 开局 ---- */
+function startBattle(enemy,isTutorial){
+  G.enemy=enemy; G.eHp=enemy.hp; G.pos=0; G.neg=0; G.turn=1;
+  G.deck=shuffle(buildDeck()); G.discard=[]; G.hand=[]; G.sel=[];
+  G.skillUsed=false; G.skipEnemyOnce=false; G.over=false;
+  G.tutorial=!!isTutorial; G.tutIdx=0;
+  refillHand();
+  // 教学模式下，保证手牌里既有正位牌也有倒位牌可供演示
+  if(G.tutorial){
+    if(G.hand[0])G.hand[0].orient='upright';
+    if(G.hand[1])G.hand[1].orient='upright';
+    if(G.hand[2])G.hand[2].orient='reversed';
+    if(G.hand[3])G.hand[3].orient='reversed';
+  }
+  $('start').classList.add('hidden');
+  $('battle').classList.remove('hidden');
+  $('overlay').classList.add('hidden');
+  $('bTitle').textContent='对战 · '+enemy.name;
+  $('eName').textContent=enemy.name;
+  $('eRole').textContent=enemy.role;
+  $('eMech').textContent=enemy.mech;
+  logClear();
+  log('<span class="turn">— 回合 1 —</span>');
+  if(enemy.quote) log(enemy.quote,'good');
+  tutShow();
+  render();
+}
+
+/* ---- 新手教学 ---- */
+function tutShow(){
+  const banner=$('tutBanner');
+  if(!G.tutorial || G.tutIdx>=TUT.length){
+    banner.classList.add('hidden');
+    if(G.tutorial && G.tutIdx>=TUT.length){
+      G.tutorial=false;
+      log('教学完成！木偶不会反击，可随意练习；想打正式对手就点右上角「换对手」。','good');
+    }
+    return;
+  }
+  const step=TUT[G.tutIdx];
+  banner.classList.remove('hidden');
+  $('tutText').innerHTML=step.text;
+  const btn=$('tutBtn');
+  if(step.btn){ btn.classList.remove('hidden'); btn.textContent=step.btn; }
+  else btn.classList.add('hidden');
+}
+function tutNext(){ G.tutIdx++; tutShow(); }
+function tutCheck(trigger){
+  if(!G.tutorial) return;
+  const step=TUT[G.tutIdx];
+  if(!step||!step.await) return;
+  if(step.await==='selUpright' && trigger==='sel'
+     && selectedCards().some(c=>c.orient==='upright')) tutNext();
+  else if(step.await==='selReversed' && trigger==='sel'
+     && selectedCards().some(c=>c.orient==='reversed')) tutNext();
+  else if(step.await==='play' && trigger==='play') tutNext();
+}
+
+/* =========================================================
+   四、渲染
+   ========================================================= */
+function pipGrid(n){
+  const map={0:[],1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+  const on=new Set(map[n]);
+  let h='<div class="pipgrid">';
+  for(let i=0;i<9;i++) h+=`<div class="pip ${on.has(i)?'':'off'}"></div>`;
+  return h+'</div>';
+}
+// 渲染一张手牌；正位 a 在上，倒位 b 在上（牌面旋转）
+function renderDomino(card,idx){
+  const up=card.orient==='upright';
+  const topN = up?card.a:card.b;
+  const botN = up?card.b:card.a;
+  const f=faceOf(card);
+  const faceStr = up
+    ? `(+${card.a}, −${card.b})`
+    : `(−${card.b}, +${card.a})`;
+  const selPos=G.sel.indexOf(card.uid);
+  const cls='domino'+(selPos>=0?' sel':'');
+  return `<div class="${cls}" data-uid="${card.uid}">
+    ${selPos>=0?`<div class="selOrder">${selPos+1}</div>`:''}
+    <div class="dHalf top">${pipGrid(topN)}</div>
+    <div class="dHalf">${pipGrid(botN)}</div>
+    <div class="dBadge ${up?'up':'rev'}">${up?'正位 · 进攻':'倒位 · 回稳'}</div>
+    <div class="dFace">${faceStr}<br>效果强度 ${power(card)}</div>
+  </div>`;
+}
+
+// 数轴：左 −9 … 中 0 … 右 +9
+function renderAxis(preview){
+  const el=$('axis');
+  const W=el.clientWidth||760;
+  const xOf=v=>{ // v: -9..+9  → 像素
+    return ((v+9)/18)*W;
+  };
+  let h='<div class="axisLine"></div>';
+  for(let v=-9;v<=9;v++){
+    const x=xOf(v);
+    const danger=Math.abs(v)>=8;
+    const zero=v===0;
+    h+=`<div class="tick ${zero?'zero':''} ${danger?'danger':''}" style="left:${x}px"></div>`;
+    if(v%3===0||danger)
+      h+=`<div class="ticklabel ${zero?'zero':''}" style="left:${x}px">${v>0?'+'+v:v}</div>`;
+  }
+  // 当前标记
+  h+=`<div class="marker neg" style="left:${xOf(-G.neg)}px">−${G.neg}</div>`;
+  h+=`<div class="marker pos" style="left:${xOf(G.pos)}px">+${G.pos}</div>`;
+  // 预览幽灵标记
+  if(preview){
+    h+=`<div class="marker neg ghost2" style="left:${xOf(-preview.neg)}px">−${preview.neg}</div>`;
+    h+=`<div class="marker pos ghost2" style="left:${xOf(preview.pos)}px">+${preview.pos}</div>`;
+  }
+  el.innerHTML=h;
+}
+
+function render(preview){
+  // 敌人
+  const e=G.enemy;
+  const pct=Math.max(0,G.eHp/e.hp*100);
+  $('eHpFill').style.width=pct+'%';
+  $('eHpText').textContent=`${Math.max(0,G.eHp)} / ${e.hp}`;
+  $('eIntent').textContent='⚔ 敌方意图：'+e.intentText(G);
+  $('bTurn').textContent='回合 '+G.turn;
+  // 数轴
+  $('axisState').textContent=`正轴 +${G.pos} ｜ 负轴 −${G.neg}`;
+  renderAxis(preview);
+  // 手牌
+  const handEl=$('hand');
+  handEl.innerHTML=G.hand.map(renderDomino).join('');
+  handEl.querySelectorAll('.domino').forEach(d=>{
+    d.onclick=()=>toggleSel(d.dataset.uid);
+  });
+  // 按钮
+  $('btnPlay').disabled = G.sel.length===0 || G.over;
+  $('btnSkill').disabled = !( (G.pos>=8||G.neg>=8) && !G.skillUsed ) || G.over;
+  $('btnSkip').disabled = G.over;
+}
+
+/* =========================================================
+   五、选牌与预览
+   ========================================================= */
+function selectedCards(){
+  return G.sel.map(uid=>G.hand.find(c=>c.uid===uid)).filter(Boolean);
+}
+function toggleSel(uid){
+  if(G.over) return;
+  const i=G.sel.indexOf(uid);
+  if(i>=0) G.sel.splice(i,1);
+  else { if(G.sel.length>=2) G.sel.shift(); G.sel.push(uid); }
+  showPreview();
+  render();
+  tutCheck('sel');
+}
+function showPreview(){
+  const cards=selectedCards();
+  const box=$('preview');
+  if(cards.length===0){
+    box.innerHTML='<span class="ph">从下方手牌中选择 1~2 张，这里会分两层一步步演算给你看。</span>';
+    renderAxis(null);
+    return;
+  }
+  const sim=simulatePlay(cards);
+  let h='';
+  h+=`<div class="pvHead">${cards.length===1?'打出单牌':'打出双牌'}　·　出牌前数轴：正 ${sim.before.pos} ／ 负 ${sim.before.neg}</div>`;
+
+  // ① 数字结算
+  h+='<div class="pvSec"><div class="pvSecT">① 数字结算 —— 牌上的数字推动数轴</div>';
+  h+=`<div class="pvNote">${sim.mainNote}</div>`;
+  sim.numSteps.forEach(s=>{ h+=`<div class="pvLine">${s}</div>`; });
+  sim.pierceSteps.forEach(s=>{ h+=`<div class="pvPierce">⚡ 贯穿：${s}</div>`; });
+  h+='</div>';
+
+  // ② 牌面效果
+  if(sim.effectSteps.length||sim.comboNote){
+    h+='<div class="pvSec"><div class="pvSecT">② 牌面效果 —— 正位伤敌 ／ 倒位回稳</div>';
+    sim.effectSteps.forEach(s=>{ h+=`<div class="pvLine">${s}</div>`; });
+    if(sim.comboNote) h+=`<div class="pvCombo">★ ${sim.comboNote}</div>`;
+    h+='</div>';
+  }
+
+  // 结果
+  h+='<div class="pvResult">';
+  h+=`<div class="pvAxis"><b>预计数轴</b>　<span class="tagPos">正轴 ${sim.before.pos} → ${sim.pos}</span>　<span class="tagNeg">负轴 ${sim.before.neg} → ${sim.neg}</span></div>`;
+  if(sim.dmg>0) h+=`<div class="pvDmg">⚔ 对敌方造成 ${sim.dmg} 点伤害</div>`;
+  h+=`<div class="pvSum ${sim.summary.cls}">${sim.summary.txt}</div>`;
+  h+='</div>';
+
+  box.innerHTML=h;
+  renderAxis({pos:Math.min(sim.pos,9),neg:Math.min(sim.neg,9)});
+}
+
+/* =========================================================
+   六、出牌结算
+   simulate=true 时只演算、不改变状态
+   ========================================================= */
+function simulatePlay(cards){
+  let pos=G.pos, neg=G.neg, dmg=0, heal=0;
+  const before={pos:G.pos,neg:G.neg};
+
+  // ① 数字 → 数轴
+  const calc = cards.length===1
+    ? calcSingle(pos,neg,cards[0])
+    : calcDouble(pos,neg,cards[0],cards[1]);
+  pos=calc.pos; neg=calc.neg;
+
+  // 连击判定
+  let combo=null;
+  if(cards.length===2){
+    const cn=comboNumber(cards[0],cards[1]);
+    if(cn!==null) combo=COMBO[cn];
+  }
+
+  // ② 牌面效果：正位进攻 / 倒位回稳
+  const effect=[];
+  cards.forEach((c,i)=>{
+    const label = cards.length>1 ? `牌${i+1} ` : '';
+    if(c.orient==='upright'){
+      dmg+=power(c);
+      effect.push(`${label}正位进攻：对敌方造成 ${power(c)} 点伤害`);
+    } else {
+      heal+=power(c);
+      effect.push(`${label}倒位回稳：可把数轴向 0 拉回 ${power(c)}`);
+    }
+  });
+
+  // 回稳分配：从较大的一侧扣减（拾骨者锁负轴时只能回正轴）
+  if(heal>0){
+    let remain=heal;
+    const lockNeg=G.enemy&&G.enemy.lockNeg;
+    while(remain>0){
+      const canNeg=neg>0&&!lockNeg, canPos=pos>0;
+      if(!canNeg&&!canPos) break;
+      const side=(canPos&&canNeg)?(pos>=neg?'pos':'neg'):(canPos?'pos':'neg');
+      if(side==='pos')pos--; else neg--;
+      remain--;
+    }
+    const used=heal-remain;
+    effect.push(used>0
+      ? `回稳实际生效：数轴向 0 拉回 ${used}${remain>0?`（剩 ${remain} 点无处可用）`:''}`
+      : '回稳无处可用：数轴已贴近 0');
+    if(lockNeg) effect.push('（拾骨者锁定负轴，回稳只能作用于正轴）');
+  }
+
+  // 连击附加效果
+  let comboNote=null;
+  if(combo){
+    comboNote=`连击触发！两张牌首位都是 ${combo.n} → 「${combo.name}」：${combo.desc}`;
+    if(combo.n===1) dmg+=8;
+    if(combo.n===6) dmg+=12;
+    if(combo.n===3){ dmg+=6; if(pos>=neg)pos=Math.max(0,pos-3); else neg=Math.max(0,neg-3); }
+    if(combo.n===2){ pos=Math.max(0,pos-2); neg=Math.max(0,neg-2); }
+    if(combo.n===4){ pos=before.pos; neg=before.neg; }
+    // n=0(重抽) 与 n=5(免敌方攻击) 为流程效果，doPlay 中处理
+  }
+
+  // 一句话总结
+  const dp=pos-before.pos, dn=neg-before.neg;
+  const moveTxt=(dp===0&&dn===0)
+    ? '数轴几乎不动'
+    : `数轴变化：正轴 ${dp>=0?'+':''}${dp}，负轴 ${dn>=0?'+':''}${dn}`;
+  let summary;
+  if(pos>=9||neg>=9){
+    summary={cls:'bad',txt:'⚠ 这一手会让数轴触顶 ±9 —— 直接失败，换一手！'};
+  } else {
+    const danger=Math.max(pos,neg);
+    if(danger>=7) summary={cls:'warn',txt:`${moveTxt}。数轴已逼近危险区（${danger}/9），下一步要留余地。`};
+    else if(danger<=3) summary={cls:'ok',txt:`${moveTxt}。数轴仍在安全区，可放心出。`};
+    else summary={cls:'',txt:`${moveTxt}。数轴尚算稳定。`};
+  }
+
+  return {pos,neg,dmg,combo,before,
+    mainNote:calc.mainNote, numSteps:calc.num, pierceSteps:calc.pierce,
+    effectSteps:effect, comboNote, summary};
+}
+
+function doPlay(){
+  if(G.over||G.sel.length===0) return;
+  const cards=selectedCards();
+  const sim=simulatePlay(cards);
+
+  // 应用数轴
+  G.pos=sim.pos; G.neg=sim.neg;
+
+  // 苦行僧噪音税
+  if(G.enemy.id==='ascetic'){
+    let tax=0;
+    cards.forEach(c=>{ if(hasBigPip(c)) tax+=8; });
+    if(tax>0){ G.eHp+=tax; log(`苦行僧因你打出大数字而回复 ${tax} 点血量`,'bad'); }
+  }
+
+  // 伤害（狂热煽动者护盾）
+  let dmg=sim.dmg;
+  if(dmg>0){
+    if(G.enemy.id==='zealot' && G.pos<6 && G.neg<6){
+      const half=Math.floor(dmg/2);
+      log(`狂热护盾生效：伤害 ${dmg} 减半为 ${half}`,'bad');
+      dmg=half;
+    }
+    G.eHp-=dmg;
+    log(`你出牌造成 <span class="dmg">${dmg}</span> 点伤害`);
+  }
+  if(sim.combo) log(`连击「${sim.combo.name}」：${sim.combo.desc}`,'good');
+
+  // 连击流程效果
+  if(sim.combo&&sim.combo.n===5){ G.skipEnemyOnce=true; }
+
+  // 弃牌
+  cards.forEach(c=>{
+    const i=G.hand.findIndex(h=>h.uid===c.uid);
+    if(i>=0){ G.discard.push(G.hand[i]); G.hand.splice(i,1); }
+  });
+  // 连击 0：重抽
+  if(sim.combo&&sim.combo.n===0){
+    G.discard.push(...G.hand); G.hand=[];
+    log('「奇点·循环」：弃掉手牌并重抽','good');
+  }
+  G.sel=[];
+
+  log(`数轴 → 正轴 +${G.pos}｜负轴 −${G.neg}`);
+  tutCheck('play');
+
+  if(checkEnd()) return;
+  enemyTurn();
+}
+
+function doSkip(){
+  if(G.over) return;
+  log('你跳过了出牌','');
+  G.sel=[];
+  enemyTurn();
+}
+
+function doSkill(){
+  if(G.over||G.skillUsed) return;
+  if(!(G.pos>=8||G.neg>=8)) return;
+  G.skillUsed=true;
+  G.pos=3; G.neg=3;
+  log('觉醒技「归元」：双轴强制归 3','good');
+  $('preview').innerHTML='<span class="ph">觉醒技已使用 · 数轴回到安全区。</span>';
+  render();
+}
+
+/* ---- 敌人回合 ---- */
+function enemyTurn(){
+  // 回合末刷新手牌
+  refillHand();
+
+  if(G.skipEnemyOnce){
+    G.skipEnemyOnce=false;
+    log('「精神·规律」：敌方本回合攻击被免除','good');
+  } else {
+    const msg=G.enemy.push(G);
+    if(msg===null){
+      log('教学木偶静静站着，没有行动。','');
+    } else {
+    log(`敌方行动：${msg}`,'dmg');
+    // 敌人推动后可能造成贯穿/触顶
+    const steps=[];
+    const r=resolvePierce(G.pos,G.neg,steps);
+    G.pos=r.pos; G.neg=r.neg;
+    steps.forEach(s=>log(s.msg,'bad'));
+    log(`数轴 → 正轴 +${G.pos}｜负轴 −${G.neg}`);
+    }
+  }
+
+  if(checkEnd()) return;
+
+  G.turn++;
+  log(`<span class="turn">— 回合 ${G.turn} —</span>`);
+  showPreview();
+  render();
+}
+
+/* ---- 胜负判定 ---- */
+function checkEnd(){
+  if(G.eHp<=0){ endGame(true,'敌方血量清空。'); return true; }
+  if(G.pos>=9){ endGame(false,'正数轴抵达 +9，数轴崩溃。'); return true; }
+  if(G.neg>=9){ endGame(false,'负数轴抵达 −9，数轴崩溃。'); return true; }
+  return false;
+}
+function endGame(win,reason){
+  G.over=true;
+  render();
+  $('ovTitle').textContent=win?'胜利':'失败';
+  $('ovTitle').style.color=win?'var(--ok)':'var(--danger)';
+  $('ovText').textContent=reason;
+  $('overlay').classList.remove('hidden');
+  log(win?'<span class="good">★ 胜利 ★</span>':'<span class="bad">✗ 失败 ✗</span>');
+}
+
+/* =========================================================
+   七、日志
+   ========================================================= */
+function log(msg,cls){
+  const el=$('log');
+  const d=document.createElement('div');
+  d.className='e'+(cls?' '+cls:'');
+  d.innerHTML=msg;
+  el.appendChild(d);
+  el.scrollTop=el.scrollHeight;
+}
+function logClear(){ $('log').innerHTML=''; }
+
+/* =========================================================
+   八、初始化
+   ========================================================= */
+function buildStart(){
+  $('enemyGrid').innerHTML=ENEMIES.map((e,i)=>`
+    <div class="enemyCard" data-i="${i}">
+      <h3>${e.name}${e.simple?'<span class="simpleBadge">推荐新手</span>':''}</h3>
+      <div class="role">${e.role} · HP ${e.hp}</div>
+      <div class="mech">${e.mech}</div>
+      <div class="mech" style="margin-top:6px;color:#7a5e1f">${e.hint}</div>
+      <div class="quote">${e.quote}</div>
+    </div>`).join('');
+  $('enemyGrid').querySelectorAll('.enemyCard').forEach(c=>{
+    c.onclick=()=>startBattle(ENEMIES[+c.dataset.i]);
+  });
+}
+
+$('btnTutorial').onclick=()=>startBattle(PUPPET,true);
+$('tutBtn').onclick=tutNext;
+$('btnPlay').onclick=doPlay;
+$('btnSkip').onclick=doSkip;
+$('btnSkill').onclick=doSkill;
+$('btnQuit').onclick=()=>{
+  $('battle').classList.add('hidden');
+  $('overlay').classList.add('hidden');
+  $('start').classList.remove('hidden');
+};
+$('ovBtn').onclick=()=>{
+  $('overlay').classList.add('hidden');
+  $('battle').classList.add('hidden');
+  $('start').classList.remove('hidden');
+};
+window.addEventListener('resize',()=>{ if(!$('battle').classList.contains('hidden')) showPreview(); });
+
+buildStart();
+</script>
+</body>
+</html>

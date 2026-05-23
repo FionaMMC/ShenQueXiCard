@@ -1,0 +1,7 @@
+# 默认忽略所有
+*
+
+# 白名单：只追踪 html 与 README
+!.gitignore
+!README.md
+!*.html
