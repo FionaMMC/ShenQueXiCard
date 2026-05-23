@@ -6,46 +6,101 @@
 <title>神缺席 · 设计文档对照测试</title>
 <style>
   :root{
-    --bg:#f4f1ea; --panel:#ffffff; --ink:#1c1b18; --muted:#6f6a60;
-    --line:#d8d2c4; --ok:#3a7d44; --bad:#d23b2a; --gold:#b08a3c;
-    --pos:#2f6fb0; --neg:#c0492f;
+    --bg:#f4f4f5;
+    --bg-2:#fafafa;
+    --panel:#ffffff;
+    --ink:#0a0a0a;
+    --ink-2:#262626;
+    --muted:#737373;
+    --muted-2:#a3a3a3;
+    --line:#e5e5e5;
+    --line-2:#d4d4d4;
+    --ok:#16794f;
+    --ok-bg:rgba(22,121,79,.08);
+    --bad:#dc2626;
+    --bad-bg:rgba(220,38,38,.08);
+    --gold:#a17b1a;
+    --gold-bg:#fbf5e3;
+    --pos:#1e6fb8;
+    --neg:#c83737;
+    --radius:10px;
+    --radius-sm:6px;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.04);
+    --shadow:0 1px 2px rgba(0,0,0,.04), 0 2px 8px rgba(0,0,0,.06);
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
-    background:var(--bg);color:var(--ink);line-height:1.5;padding:18px 16px 60px}
+  body{
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.55;
+    padding:24px 18px 64px;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+  }
   .wrap{max-width:1080px;margin:0 auto}
-  h1{font-size:22px;margin-bottom:4px}
-  .sub{color:var(--muted);font-size:13px;margin-bottom:14px}
-  .summary{padding:14px 18px;border-radius:10px;background:#fff;
-    border:1px solid var(--line);margin-bottom:16px;font-size:14px;display:flex;
-    gap:16px;flex-wrap:wrap;align-items:baseline;box-shadow:0 2px 8px rgba(0,0,0,.06)}
-  .summary .num{font-size:22px;font-weight:700}
+  h1{font-size:24px;margin-bottom:4px;font-weight:600;letter-spacing:-0.015em}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:18px;line-height:1.6}
+  .sub code{
+    background:var(--bg-2);padding:1px 6px;border-radius:4px;
+    font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace;
+    font-size:12px;border:1px solid var(--line);
+  }
+  .summary{
+    padding:18px 22px;border-radius:var(--radius);background:#fff;
+    border:1px solid var(--line);margin-bottom:18px;font-size:14px;
+    display:flex;gap:18px;flex-wrap:wrap;align-items:baseline;
+    box-shadow:var(--shadow);
+  }
+  .summary .num{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
   .summary .num.ok{color:var(--ok)}
   .summary .num.bad{color:var(--bad)}
   .summary .num.muted{color:var(--muted)}
-  .group{background:#fff;border:1px solid var(--line);border-radius:10px;
-    margin-bottom:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)}
-  .groupT{padding:10px 14px;background:#f0ebdf;font-weight:700;font-size:14px;color:var(--gold);
-    display:flex;justify-content:space-between;align-items:center}
-  .groupT .count{font-size:12px;color:var(--muted);font-weight:400}
-  .case{padding:10px 14px;border-top:1px solid var(--line);font-size:13.5px;line-height:1.55}
+  .group{
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+    margin-bottom:14px;overflow:hidden;box-shadow:var(--shadow);
+  }
+  .groupT{
+    padding:12px 18px;background:var(--bg-2);
+    font-weight:600;font-size:11px;color:var(--muted);
+    letter-spacing:0.12em;text-transform:uppercase;
+    display:flex;justify-content:space-between;align-items:center;
+    border-bottom:1px solid var(--line);
+  }
+  .groupT .count{font-size:11px;color:var(--muted-2);font-weight:500;letter-spacing:0.04em;text-transform:none}
+  .case{
+    padding:11px 18px;border-top:1px solid var(--line);
+    font-size:13.5px;line-height:1.6;
+  }
   .case:first-of-type{border-top:none}
-  .case .marker{font-weight:700;margin-right:6px}
+  .case .marker{font-weight:700;margin-right:8px;font-size:14px}
   .case.ok .marker{color:var(--ok)}
   .case.bad .marker{color:var(--bad)}
+  .case.bad{background:var(--bad-bg)}
   .case .desc{color:var(--ink)}
-  .case .ref{color:var(--muted);font-size:11.5px;margin-left:6px}
-  .case .err{margin-top:5px;padding:6px 10px;background:#fbece8;
-    border-left:3px solid var(--bad);border-radius:0 5px 5px 0;
-    font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:12px;color:#7a1a1a;
-    white-space:pre-wrap}
+  .case .ref{color:var(--muted-2);font-size:11px;margin-left:8px;letter-spacing:0.04em}
+  .case .err{
+    margin-top:8px;padding:9px 13px;background:#fff;
+    border-left:2px solid var(--bad);border-radius:0 5px 5px 0;
+    font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace;
+    font-size:12px;color:var(--bad);white-space:pre-wrap;line-height:1.55;
+  }
   iframe{display:none}
-  .note{font-size:12px;color:var(--muted);margin-top:18px;line-height:1.7;
-    background:#fffef9;border:1px dashed var(--line);border-radius:8px;padding:10px 14px}
-  .note code{background:#f0ebdf;padding:1px 5px;border-radius:3px;font-family:inherit}
-  .back{display:inline-block;margin-bottom:12px;padding:5px 12px;border-radius:6px;
-    background:#fff;border:1px solid var(--line);color:var(--muted);text-decoration:none;font-size:13px}
-  .back:hover{border-color:var(--gold)}
+  .note{
+    font-size:12px;color:var(--muted);margin-top:22px;line-height:1.75;
+    background:var(--bg-2);border:1px solid var(--line);
+    border-radius:var(--radius-sm);padding:12px 16px;
+  }
+  .note code{
+    background:#fff;padding:1px 6px;border-radius:4px;
+    font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace;
+    font-size:11.5px;border:1px solid var(--line);
+  }
+  .back{
+    display:inline-block;margin-bottom:14px;padding:6px 14px;border-radius:var(--radius-sm);
+    background:#fff;border:1px solid var(--line);color:var(--muted);
+    text-decoration:none;font-size:13px;font-weight:500;
+    transition:all .15s ease;
+  }
+  .back:hover{border-color:var(--ink);color:var(--ink)}
 </style>
 </head>
 <body>

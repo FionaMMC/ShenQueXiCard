@@ -5,229 +5,482 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>神缺席 · 卡牌规则模拟器（测试版）</title>
 <style>
+  /* =========================================================
+     调色板：单色基底 + 功能色高亮
+     ========================================================= */
   :root{
-    --bg:#f4f1ea; --panel:#ffffff; --ink:#1c1b18; --muted:#6f6a60;
-    --line:#d8d2c4; --pos:#2f6fb0; --neg:#c0492f; --gold:#b08a3c;
-    --danger:#d23b2a; --ok:#3a7d44; --shadow:0 2px 8px rgba(0,0,0,.10);
+    /* 中性 */
+    --bg:#f4f4f5;
+    --bg-2:#fafafa;
+    --panel:#ffffff;
+    --ink:#0a0a0a;
+    --ink-2:#262626;
+    --muted:#737373;
+    --muted-2:#a3a3a3;
+    --line:#e5e5e5;
+    --line-2:#d4d4d4;
+    --line-3:#a3a3a3;
+
+    /* 功能色 —— 在单色底上自然跳出来 */
+    --pos:#1e6fb8;
+    --pos-bg:rgba(30,111,184,.08);
+    --neg:#c83737;
+    --neg-bg:rgba(200,55,55,.08);
+    --gold:#a17b1a;
+    --gold-bg:#fbf5e3;
+    --gold-line:rgba(161,123,26,.35);
+    --ok:#16794f;
+    --ok-bg:rgba(22,121,79,.08);
+    --danger:#dc2626;
+    --danger-bg:rgba(220,38,38,.08);
+
+    /* 阴影分层 */
+    --shadow-sm:0 1px 2px rgba(0,0,0,.04);
+    --shadow:0 1px 2px rgba(0,0,0,.04), 0 2px 8px rgba(0,0,0,.06);
+    --shadow-md:0 4px 12px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.08);
+    --shadow-lg:0 8px 24px rgba(0,0,0,.10), 0 16px 48px rgba(0,0,0,.10);
+
+    --radius:10px;
+    --radius-sm:6px;
   }
+
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{
-    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
-    background:var(--bg); color:var(--ink); line-height:1.5;
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    line-height:1.55;
     -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    font-feature-settings:"kern","liga";
   }
-  .wrap{max-width:1080px;margin:0 auto;padding:18px 16px 40px}
-  h1{font-size:20px;letter-spacing:.5px}
-  .sub{color:var(--muted);font-size:13px;margin-top:2px}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 18px 48px}
+  h1{font-size:22px;font-weight:600;letter-spacing:-0.01em}
+  h2{font-weight:600}
+  h3{font-weight:600}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px;font-weight:400}
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
   .hidden{display:none!important}
-  button{font-family:inherit;cursor:pointer}
+  button{font-family:inherit;cursor:pointer;transition:all .15s ease}
+
+  /* 小标签 / 段落标头：紧致字间距 */
+  .eyebrow{
+    font-size:10.5px;
+    font-weight:600;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
 
   /* ---- 开始界面 ---- */
-  .enemyGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
-  .enemyCard{padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--panel);
-    cursor:pointer;transition:.15s;box-shadow:var(--shadow)}
-  .enemyCard:hover{transform:translateY(-2px);border-color:var(--gold)}
-  .enemyCard h3{font-size:15px}
-  .enemyCard .role{font-size:12px;color:var(--gold);margin:2px 0 6px}
-  .enemyCard .mech{font-size:12.5px;color:var(--muted)}
-  .enemyCard .quote{font-size:12px;font-style:italic;color:#8a8478;margin-top:8px;border-left:3px solid var(--line);padding-left:8px}
+  .enemyGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:18px}
+  .enemyCard{
+    padding:18px 16px;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    background:var(--panel);
+    cursor:pointer;
+    transition:all .2s cubic-bezier(.4,0,.2,1);
+    box-shadow:var(--shadow-sm);
+  }
+  .enemyCard:hover{
+    transform:translateY(-2px);
+    border-color:var(--ink);
+    box-shadow:var(--shadow-md);
+  }
+  .enemyCard h3{font-size:15.5px;letter-spacing:-0.005em}
+  .enemyCard .role{font-size:11px;color:var(--muted);margin:4px 0 10px;letter-spacing:0.08em;text-transform:uppercase;font-weight:500}
+  .enemyCard .mech{font-size:12.5px;color:var(--ink-2);line-height:1.6}
+  .enemyCard .quote{font-size:12px;font-style:italic;color:var(--muted);
+    margin-top:10px;border-left:2px solid var(--line-2);padding-left:10px}
 
   /* ---- 战斗布局 ---- */
-  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px}
-  .ghost{background:none;border:1px solid var(--line);border-radius:7px;padding:6px 12px;font-size:13px;color:var(--muted)}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px}
+  .ghost{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:7px 14px;
+    font-size:13px;
+    color:var(--muted);
+    font-weight:500;
+  }
+  .ghost:hover{border-color:var(--ink);color:var(--ink)}
 
   /* 敌人 */
-  #enemyPanel{padding:14px 16px;margin-bottom:12px}
+  #enemyPanel{padding:16px 18px;margin-bottom:14px}
   .enemyHead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
-  .enemyHead h2{font-size:17px}
-  .enemyHead .role{font-size:12px;color:var(--gold)}
-  .hpbar{height:18px;background:#ece4d4;border-radius:9px;overflow:hidden;margin:8px 0 6px;border:1px solid var(--line)}
-  .hpfill{height:100%;background:linear-gradient(90deg,#c0492f,#d97b4a);transition:width .4s}
-  .enemyMeta{font-size:12.5px;color:var(--muted)}
-  .intent{margin-top:8px;font-size:13px;background:#fbf6e9;border:1px dashed var(--gold);
-    border-radius:7px;padding:6px 10px;color:#7a5e1f}
-  .eShieldBadge{display:inline-block;background:#d8e3d4;color:#3a7d44;border-radius:5px;padding:2px 7px;
-    font-size:11.5px;margin-left:6px;font-weight:700}
+  .enemyHead h2{font-size:17px;letter-spacing:-0.01em}
+  .enemyHead .role{font-size:11px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;font-weight:500}
+  .hpbar{
+    height:14px;background:var(--bg);border-radius:7px;
+    overflow:hidden;margin:10px 0 8px;border:1px solid var(--line);
+  }
+  .hpfill{
+    height:100%;
+    background:linear-gradient(90deg,var(--ink),var(--ink-2));
+    transition:width .45s cubic-bezier(.4,0,.2,1);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);
+  }
+  .enemyMeta{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .enemyMeta b{color:var(--ink);font-weight:600}
+  .intent{
+    margin-top:10px;font-size:13px;
+    background:var(--gold-bg);
+    border:1px solid var(--gold-line);
+    border-radius:var(--radius-sm);
+    padding:7px 11px;color:var(--gold);font-weight:500;
+  }
+  .eShieldBadge{display:inline-block;background:var(--ok-bg);color:var(--ok);border-radius:5px;padding:2px 7px;
+    font-size:11.5px;margin-left:6px;font-weight:600}
 
   /* 数轴 —— 两条横向数轴，上正下负 */
-  #axisPanel{padding:18px 16px 12px;margin-bottom:12px}
-  .axisTitle{font-size:13px;color:var(--muted);margin-bottom:14px;display:flex;
-    justify-content:space-between;gap:8px;flex-wrap:wrap}
-  .axisPair{display:flex;flex-direction:column;gap:12px;margin:0 4px}
-  .axisRow{display:flex;align-items:center;gap:10px}
-  .axisRow .label{font-size:13px;font-weight:700;min-width:54px;text-align:right}
+  #axisPanel{padding:20px 18px 14px;margin-bottom:14px}
+  .axisTitle{font-size:12px;color:var(--muted);margin-bottom:18px;display:flex;
+    justify-content:space-between;gap:8px;flex-wrap:wrap;line-height:1.5}
+  .axisPair{display:flex;flex-direction:column;gap:14px;margin:0 4px}
+  .axisRow{display:flex;align-items:center;gap:12px}
+  .axisRow .label{
+    font-size:10.5px;font-weight:600;min-width:50px;text-align:right;
+    letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);
+  }
   .axisRow.pos .label{color:var(--pos)}
   .axisRow.neg .label{color:var(--neg)}
-  .axisRow .shieldChip{font-size:11px;background:#d6e5cf;color:#3a7d44;border-radius:5px;
-    padding:1px 6px;font-weight:700;margin-left:-4px}
-  .track{position:relative;flex:1;height:34px;background:#f0ebe0;border:1px solid var(--line);
-    border-radius:7px;overflow:hidden}
-  .fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px 0 0 6px;
-    transition:width .45s cubic-bezier(.4,1.2,.5,1)}
-  .axisRow.pos .fill{background:linear-gradient(90deg,#9fc1e6,#2f6fb0)}
-  .axisRow.neg .fill{background:linear-gradient(90deg,#eebab0,#c0492f)}
-  .ghostFill{position:absolute;top:0;bottom:0;background:rgba(0,0,0,.18);border:1px dashed rgba(0,0,0,.35);
-    border-radius:4px;pointer-events:none}
+  .axisRow .shieldChip{
+    font-size:10.5px;background:var(--ok-bg);color:var(--ok);
+    border-radius:4px;padding:2px 6px;font-weight:600;margin-left:-4px;
+    border:1px solid rgba(22,121,79,.2);
+  }
+  .track{
+    position:relative;flex:1;height:32px;
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    overflow:hidden;
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.04);
+  }
+  .fill{
+    position:absolute;left:0;top:0;bottom:0;
+    border-radius:5px 0 0 5px;
+    transition:width .45s cubic-bezier(.4,0,.2,1);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.15);
+  }
+  .axisRow.pos .fill{background:linear-gradient(180deg,#2a85d4,var(--pos))}
+  .axisRow.neg .fill{background:linear-gradient(180deg,#dc4a4a,var(--neg))}
+  .ghostFill{
+    position:absolute;top:0;bottom:0;
+    background:rgba(0,0,0,.10);
+    border:1px dashed rgba(0,0,0,.4);
+    border-radius:3px;pointer-events:none;
+  }
   .tickG{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none}
   .tickG .t{position:absolute;top:0;bottom:0;width:1px;background:rgba(0,0,0,.10)}
-  .tickG .t.major{background:rgba(0,0,0,.28);width:2px}
-  .tickG .t.danger{background:rgba(210,59,42,.5);width:2px}
+  .tickG .t.major{background:rgba(0,0,0,.25);width:1px}
+  .tickG .t.danger{background:var(--danger);width:1.5px;opacity:.55}
   .tickG .lbl{position:absolute;top:50%;transform:translateX(-50%) translateY(-50%);
-    font-size:10px;color:#000;opacity:.45;font-weight:600}
-  .axisRow .value{min-width:64px;text-align:left;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+    font-size:9.5px;color:#000;opacity:.4;font-weight:600;font-variant-numeric:tabular-nums}
+  .axisRow .value{
+    min-width:64px;text-align:left;font-size:18px;font-weight:600;
+    font-variant-numeric:tabular-nums;letter-spacing:-0.02em;
+  }
   .axisRow.pos .value{color:var(--pos)}
   .axisRow.neg .value{color:var(--neg)}
-  .axisRow .value .delta{font-size:12px;font-weight:600;color:var(--muted);margin-left:3px}
+  .axisRow .value .delta{font-size:12px;font-weight:500;color:var(--muted);margin-left:4px}
   .axisRow .value .delta.up{color:var(--danger)}
   .axisRow .value .delta.dn{color:var(--ok)}
-  .statusBar{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);
-    margin-top:10px;padding-top:8px;border-top:1px solid var(--line)}
-  .statusBar b{color:var(--ink)}
+  .statusBar{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--muted);
+    margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .statusBar b{color:var(--ink);font-weight:600}
 
   /* 预览（出牌演算） */
-  #preview{padding:0;margin-bottom:12px;font-size:13px;overflow:hidden}
-  #preview .ph{display:block;padding:16px;color:var(--muted)}
-  .pvHead{background:#f0ebdf;padding:8px 14px;font-size:12px;color:var(--muted);font-weight:700}
-  .pvSec{padding:10px 14px;border-top:1px solid var(--line)}
-  .pvSecT{font-size:12.5px;font-weight:700;color:var(--gold);margin-bottom:7px}
-  .pvNote{font-size:12.5px;background:#fbf6e9;border-left:3px solid var(--gold);
-    padding:5px 9px;margin-bottom:7px;color:#7a5e1f;border-radius:0 5px 5px 0}
-  .pvLine{padding:3px 0 3px 6px;color:var(--ink);font-variant-numeric:tabular-nums}
-  .pvPierce{margin-top:6px;padding:6px 9px;background:#fbece8;border:1px solid #e3b8ab;
-    border-radius:6px;color:var(--danger);font-weight:700}
-  .pvCombo{margin-top:6px;padding:6px 9px;background:#fbf3df;border:1px solid var(--gold);
-    border-radius:6px;color:#7a5e1f;font-weight:700}
-  .pvEffect{margin-top:5px;padding:5px 9px;background:#eaf3ee;border-left:3px solid var(--ok);
-    border-radius:0 5px 5px 0;color:#1f5b2b;font-size:12.5px}
-  .pvResult{padding:11px 14px;border-top:2px solid var(--line);background:#fcfaf4}
-  .pvAxis{font-size:14px;margin-bottom:5px}
-  .tagPos{color:var(--pos);font-weight:700}
-  .tagNeg{color:var(--neg);font-weight:700}
-  .pvDmg{font-size:13px;font-weight:700;color:var(--neg);margin-bottom:5px}
-  .pvSum{font-size:12.5px;padding:6px 9px;border-radius:6px;background:#eef0ea;color:var(--muted)}
-  .pvSum.ok{background:#eef3ee;color:var(--ok)}
-  .pvSum.warn{background:#fbf3df;color:#7a5e1f}
-  .pvSum.bad{background:#fbece8;color:var(--danger);font-weight:700}
+  #preview{padding:0;margin-bottom:14px;font-size:13px;overflow:hidden}
+  #preview .ph{display:block;padding:18px;color:var(--muted);text-align:center;font-size:13px}
+  .pvHead{
+    background:var(--bg-2);
+    padding:10px 16px;font-size:11px;color:var(--muted);
+    font-weight:600;letter-spacing:0.06em;
+    border-bottom:1px solid var(--line);
+  }
+  .pvSec{padding:12px 16px;border-top:1px solid var(--line)}
+  .pvSec:first-of-type{border-top:none}
+  .pvSecT{
+    font-size:10.5px;font-weight:600;color:var(--muted);
+    letter-spacing:0.12em;text-transform:uppercase;margin-bottom:9px;
+  }
+  .pvNote{font-size:12.5px;background:var(--gold-bg);border-left:2px solid var(--gold);
+    padding:7px 11px;margin-bottom:8px;color:var(--gold);border-radius:0 5px 5px 0;font-weight:500}
+  .pvLine{padding:3px 0 3px 8px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .pvPierce{margin-top:6px;padding:7px 11px;background:var(--danger-bg);
+    border-left:2px solid var(--danger);border-radius:0 5px 5px 0;color:var(--danger);font-weight:600}
+  .pvCombo{margin-top:6px;padding:7px 11px;background:var(--gold-bg);
+    border-left:2px solid var(--gold);border-radius:0 5px 5px 0;color:var(--gold);font-weight:600}
+  .pvEffect{margin-top:5px;padding:6px 11px;background:var(--ok-bg);
+    border-left:2px solid var(--ok);border-radius:0 5px 5px 0;color:var(--ok);
+    font-size:12.5px;font-weight:500}
+  .pvResult{padding:14px 16px;border-top:1px solid var(--line);background:var(--bg-2)}
+  .pvAxis{font-size:14px;margin-bottom:6px;font-variant-numeric:tabular-nums}
+  .tagPos{color:var(--pos);font-weight:600}
+  .tagNeg{color:var(--neg);font-weight:600}
+  .pvDmg{font-size:14px;font-weight:600;color:var(--neg);margin-bottom:6px}
+  .pvSum{font-size:12.5px;padding:8px 11px;border-radius:var(--radius-sm);
+    background:var(--bg);color:var(--muted);font-weight:500}
+  .pvSum.ok{background:var(--ok-bg);color:var(--ok)}
+  .pvSum.warn{background:var(--gold-bg);color:var(--gold)}
+  .pvSum.bad{background:var(--danger-bg);color:var(--danger);font-weight:600}
 
   /* 手牌 */
-  .handWrap{padding:12px 14px;margin-bottom:12px}
-  .handTitle{font-size:13px;color:var(--muted);margin-bottom:10px}
-  .hand{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
-  .domino{width:96px;border:1px solid var(--line);border-radius:9px;background:#fffef9;
-    cursor:pointer;transition:.13s;box-shadow:var(--shadow);overflow:hidden;position:relative}
-  .domino:hover{transform:translateY(-3px)}
-  .domino.sel{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
-  .dHalf{height:50px;display:flex;align-items:center;justify-content:center;position:relative}
+  .handWrap{padding:14px 16px;margin-bottom:14px}
+  .handTitle{font-size:11px;color:var(--muted);margin-bottom:12px;
+    letter-spacing:0.12em;text-transform:uppercase;font-weight:600}
+  .hand{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  .domino{
+    width:100px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:#fff;
+    cursor:pointer;
+    transition:all .2s cubic-bezier(.4,0,.2,1);
+    box-shadow:var(--shadow-sm);
+    overflow:hidden;position:relative;
+  }
+  .domino:hover{
+    transform:translateY(-4px);
+    border-color:var(--ink-2);
+    box-shadow:var(--shadow-md);
+  }
+  .domino.sel{
+    border:2px solid var(--ink);
+    box-shadow:0 0 0 3px rgba(10,10,10,.08), var(--shadow-md);
+    transform:translateY(-2px);
+  }
+  .dHalf{height:52px;display:flex;align-items:center;justify-content:center;position:relative}
   .dHalf.top{border-bottom:1px solid var(--line)}
   .pipgrid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);
-    width:38px;height:38px;gap:2px}
+    width:38px;height:38px;gap:3px}
   .pip{width:8px;height:8px;border-radius:50%;background:var(--ink);margin:auto}
   .pip.off{background:transparent}
-  .dBadge{font-size:10px;text-align:center;padding:3px 1px;font-weight:700;line-height:1.3}
-  .dBadge.up{background:#eaf1f8;color:var(--pos)}
-  .dBadge.rev{background:#f8ece8;color:var(--neg)}
-  .dEffect{font-size:10.5px;text-align:center;color:var(--ink);padding:4px 4px 6px;
-    border-top:1px solid var(--line);line-height:1.35;min-height:38px}
-  .dEffect .dKind{color:var(--muted);font-size:9.5px;display:block;margin-bottom:2px}
-  .selOrder{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;
-    background:var(--gold);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700}
-  .cardCorner{position:absolute;top:3px;left:3px;font-size:10px;font-weight:700;
-    background:#f4f1ea;color:var(--muted);padding:1px 5px;border-radius:4px}
+  .dBadge{
+    font-size:9.5px;text-align:center;padding:4px 1px;font-weight:600;line-height:1.3;
+    letter-spacing:0.06em;font-variant-numeric:tabular-nums;
+  }
+  .dBadge.up{background:var(--pos-bg);color:var(--pos)}
+  .dBadge.rev{background:var(--neg-bg);color:var(--neg)}
+  .dEffect{
+    font-size:10.5px;text-align:center;color:var(--ink);
+    padding:5px 5px 7px;
+    border-top:1px solid var(--line);
+    line-height:1.4;min-height:40px;
+    background:var(--bg-2);
+  }
+  .dEffect .dKind{
+    color:var(--muted);font-size:9px;display:block;margin-bottom:3px;
+    letter-spacing:0.1em;text-transform:uppercase;font-weight:600;
+  }
+  .selOrder{
+    position:absolute;top:4px;right:4px;
+    width:20px;height:20px;border-radius:50%;
+    background:var(--ink);color:#fff;font-size:11px;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;box-shadow:var(--shadow);
+  }
+  .cardCorner{
+    position:absolute;top:4px;left:4px;font-size:9.5px;font-weight:700;
+    background:var(--ink);color:#fff;
+    padding:2px 6px;border-radius:4px;letter-spacing:0.04em;
+    font-variant-numeric:tabular-nums;
+  }
 
   /* 操作按钮 */
-  .actions{display:flex;gap:10px;justify-content:center;margin-bottom:12px;flex-wrap:wrap}
-  .btn{border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;color:#fff}
-  .btn.play{background:var(--pos)}
-  .btn.play:disabled{background:#b7c3cd;cursor:not-allowed}
-  .btn.skip{background:#8a8478}
-  .btn.skill{background:var(--gold)}
-  .btn.skill:disabled{background:#d6cdb5;cursor:not-allowed}
+  .actions{display:flex;gap:10px;justify-content:center;margin-bottom:14px;flex-wrap:wrap}
+  .btn{
+    border:none;border-radius:var(--radius-sm);
+    padding:11px 22px;font-size:14px;font-weight:600;color:#fff;
+    letter-spacing:0.02em;
+    transition:all .15s ease;
+  }
+  .btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:var(--shadow-md)}
+  .btn:active:not(:disabled){transform:translateY(0)}
+  .btn.play{background:var(--ink);box-shadow:var(--shadow)}
+  .btn.play:hover:not(:disabled){background:#2a2a2a}
+  .btn.play:disabled{background:#d4d4d4;cursor:not-allowed;color:#737373}
+  .btn.skip{background:#fff;color:var(--ink);border:1px solid var(--line-2);box-shadow:var(--shadow-sm)}
+  .btn.skip:hover:not(:disabled){border-color:var(--ink);background:var(--bg)}
+  .btn.skill{background:var(--gold);color:#fff;box-shadow:var(--shadow)}
+  .btn.skill:hover:not(:disabled){background:#b88f2c}
+  .btn.skill:disabled{background:#e5dcc0;cursor:not-allowed;color:#a3a3a3}
 
   /* 日志 */
-  #log{padding:10px 14px;font-size:12.5px;max-height:180px;overflow-y:auto}
-  #log .e{padding:3px 0;border-bottom:1px dotted var(--line)}
+  #log{padding:12px 16px;font-size:12.5px;max-height:200px;overflow-y:auto;font-variant-numeric:tabular-nums}
+  #log .e{padding:5px 0;border-bottom:1px solid var(--line)}
   #log .e:last-child{border:none}
-  #log .turn{color:var(--gold);font-weight:700}
+  #log .turn{color:var(--ink);font-weight:600;letter-spacing:0.06em}
   #log .dmg{color:var(--neg)}
   #log .good{color:var(--ok)}
-  #log .bad{color:var(--danger);font-weight:700}
+  #log .bad{color:var(--danger);font-weight:600}
 
   /* 新手教学 */
-  .tutStart{display:block;width:100%;margin-top:16px;padding:16px;border:none;border-radius:10px;
-    background:linear-gradient(90deg,#b08a3c,#caa45a);color:#fff;font-size:16px;font-weight:700;
-    box-shadow:var(--shadow)}
-  .tutStart:hover{filter:brightness(1.06)}
-  .toolLink{display:block;width:100%;margin-top:10px;padding:10px;border:1px solid var(--line);
-    border-radius:9px;background:var(--panel);color:var(--muted);font-size:13px;font-weight:700}
-  .simpleBadge{display:inline-block;font-size:10.5px;background:var(--ok);color:#fff;
-    border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:middle}
-  #tutBanner{background:#fbf3df;border:2px solid var(--gold);border-radius:10px;
-    padding:14px 16px;margin-bottom:12px;display:flex;gap:12px;align-items:center}
-  .tutText{flex:1;font-size:14px;color:#5f4a18;line-height:1.75}
-  .tutBtn{background:var(--gold);color:#fff;border:none;border-radius:8px;
-    padding:10px 16px;font-size:13px;font-weight:700;white-space:nowrap}
+  .tutStart{
+    display:block;width:100%;margin-top:20px;padding:18px;
+    border:none;border-radius:var(--radius);
+    background:var(--ink);color:#fff;
+    font-size:15px;font-weight:600;letter-spacing:0.02em;
+    box-shadow:var(--shadow-md);transition:all .2s ease;
+  }
+  .tutStart:hover{background:#2a2a2a;transform:translateY(-1px);box-shadow:var(--shadow-lg)}
+  .toolLink{
+    display:block;width:100%;margin-top:10px;padding:12px;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    background:var(--panel);color:var(--muted);
+    font-size:13px;font-weight:500;
+    transition:all .15s ease;
+  }
+  .toolLink:hover{border-color:var(--ink);color:var(--ink)}
+  .simpleBadge{
+    display:inline-block;font-size:10px;
+    background:var(--ok);color:#fff;
+    border-radius:4px;padding:2px 7px;margin-left:8px;
+    vertical-align:middle;font-weight:600;
+    letter-spacing:0.06em;text-transform:uppercase;
+  }
+  #tutBanner{
+    background:var(--gold-bg);
+    border:1px solid var(--gold-line);
+    border-radius:var(--radius);
+    padding:16px 18px;margin-bottom:14px;
+    display:flex;gap:14px;align-items:center;
+    box-shadow:var(--shadow-sm);
+  }
+  .tutText{flex:1;font-size:13.5px;color:#5f4a18;line-height:1.7}
+  .tutBtn{
+    background:var(--gold);color:#fff;border:none;
+    border-radius:var(--radius-sm);
+    padding:10px 18px;font-size:13px;font-weight:600;white-space:nowrap;
+  }
+  .tutBtn:hover{background:#b88f2c}
 
   /* 校验工具 */
-  #tool h3{font-size:15px;margin-bottom:9px}
-  .toolIntro{font-size:13px;line-height:1.8;color:var(--ink)}
-  .toolIntro b{color:var(--gold)}
-  .wGroup{margin-bottom:9px}
-  .wGroupT{font-size:12px;color:var(--muted);margin-bottom:4px}
-  .wChips{display:flex;gap:6px;flex-wrap:wrap}
-  .wChip{border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:12px;
-    background:#fffef9;font-variant-numeric:tabular-nums}
-  .t0{color:#8a8478}.t1{color:var(--pos)}.t2{color:var(--gold)}.t3{color:var(--neg);font-weight:700}
-  .sRow{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;flex-wrap:wrap}
-  .sRow select{font-family:inherit;font-size:13px;padding:5px 7px;border:1px solid var(--line);
-    border-radius:6px;background:#fffef9}
-  .sOut{margin-top:8px;padding:11px 13px;background:#f4f1ea;border-radius:8px;font-size:13px;line-height:1.8}
-  .sOut .k{color:var(--muted)}
+  #tool h3{font-size:15px;margin-bottom:10px;letter-spacing:-0.01em}
+  .toolIntro{font-size:13px;line-height:1.75;color:var(--ink-2)}
+  .toolIntro b{color:var(--ink);font-weight:600}
+  .wGroup{margin-bottom:10px}
+  .wGroupT{font-size:11px;color:var(--muted);margin-bottom:6px;
+    letter-spacing:0.1em;text-transform:uppercase;font-weight:600}
+  .wChips{display:flex;gap:8px;flex-wrap:wrap}
+  .wChip{
+    border:1px solid var(--line);border-radius:var(--radius-sm);
+    padding:6px 10px;font-size:12px;
+    background:#fff;font-variant-numeric:tabular-nums;
+  }
+  .t0{color:var(--muted)}.t1{color:var(--pos)}.t2{color:var(--gold)}.t3{color:var(--neg);font-weight:600}
+  .sRow{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;flex-wrap:wrap}
+  .sRow select{
+    font-family:inherit;font-size:13px;
+    padding:6px 9px;border:1px solid var(--line);
+    border-radius:var(--radius-sm);background:#fff;
+  }
+  .sRow select:focus{outline:none;border-color:var(--ink)}
+  .sOut{
+    margin-top:10px;padding:13px 15px;
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    font-size:13px;line-height:1.85;
+    font-variant-numeric:tabular-nums;
+  }
+  .sOut .k{color:var(--muted);font-weight:500}
   .tuneGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-  .tuneItem{font-size:12.5px;color:var(--ink);display:flex;justify-content:space-between;
-    align-items:center;gap:8px;background:#fffef9;border:1px solid var(--line);
-    border-radius:6px;padding:5px 9px}
-  .tuneItem input{width:64px;font-family:inherit;font-size:13px;padding:3px 5px;
-    border:1px solid var(--line);border-radius:5px;text-align:right}
-  .tuneHd{font-size:12px;font-weight:700;color:var(--gold);margin:14px 0 5px;
-    padding-top:8px;border-top:1px dashed var(--line)}
+  .tuneItem{
+    font-size:12.5px;color:var(--ink);
+    display:flex;justify-content:space-between;align-items:center;gap:8px;
+    background:#fff;border:1px solid var(--line);
+    border-radius:var(--radius-sm);padding:7px 11px;
+  }
+  .tuneItem input{
+    width:64px;font-family:inherit;font-size:13px;
+    padding:4px 6px;border:1px solid var(--line);
+    border-radius:4px;text-align:right;font-variant-numeric:tabular-nums;
+  }
+  .tuneItem input:focus{outline:none;border-color:var(--ink)}
+  .tuneHd{
+    font-size:10.5px;font-weight:600;color:var(--muted);
+    margin:18px 0 8px;padding-top:12px;
+    border-top:1px solid var(--line);
+    letter-spacing:0.12em;text-transform:uppercase;
+  }
   .tuneHd:first-of-type{margin-top:4px;padding-top:0;border-top:none}
-  #cfgImport{flex:1;min-height:60px;font-family:monospace;font-size:12px;
-    padding:6px;border:1px solid var(--line);border-radius:6px;resize:vertical}
-  .cardTuneRow{display:grid;grid-template-columns:auto 1fr 1fr;gap:6px;align-items:center;
-    padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fffef9;
-    margin-bottom:5px;font-size:12px}
-  .cardTuneRow .cName{font-weight:700;color:var(--gold);font-size:12.5px}
-  .cardTuneRow .cSide{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-  .cardTuneRow .cSide label{display:flex;align-items:center;gap:3px}
-  .cardTuneRow input{width:48px;font-family:inherit;font-size:12px;padding:2px 4px;
-    border:1px solid var(--line);border-radius:4px;text-align:right}
+  #cfgImport{
+    flex:1;min-height:64px;font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace;
+    font-size:12px;padding:8px;border:1px solid var(--line);
+    border-radius:var(--radius-sm);resize:vertical;background:var(--bg-2);
+  }
+  #cfgImport:focus{outline:none;border-color:var(--ink);background:#fff}
+  .cardTuneRow{
+    display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;align-items:center;
+    padding:8px 11px;border:1px solid var(--line);
+    border-radius:var(--radius-sm);background:#fff;
+    margin-bottom:6px;font-size:12px;
+  }
+  .cardTuneRow .cName{
+    font-weight:600;color:var(--ink);font-size:12.5px;
+    font-variant-numeric:tabular-nums;
+  }
+  .cardTuneRow .cSide{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .cardTuneRow .cSide label{display:flex;align-items:center;gap:4px;color:var(--ink-2)}
+  .cardTuneRow input{
+    width:50px;font-family:inherit;font-size:12px;
+    padding:3px 5px;border:1px solid var(--line);
+    border-radius:4px;text-align:right;font-variant-numeric:tabular-nums;
+  }
+  .cardTuneRow input:focus{outline:none;border-color:var(--ink)}
   @media (max-width:600px){
     .tuneGrid{grid-template-columns:1fr}
     .cardTuneRow{grid-template-columns:1fr}
   }
 
-  .footer{text-align:center;font-size:11.5px;color:#a39c8c;margin-top:22px;line-height:1.7}
-  .note{font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.7}
+  .footer{
+    text-align:center;font-size:11px;color:var(--muted-2);
+    margin-top:32px;line-height:1.7;letter-spacing:0.04em;
+  }
+  .note{
+    font-size:12px;color:var(--muted);
+    margin-top:18px;line-height:1.75;
+    padding:14px 16px;
+    background:var(--bg-2);border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+  }
+  .note b{color:var(--ink);font-weight:600}
+
+  /* overlay */
+  #overlay{
+    position:fixed;inset:0;background:rgba(10,10,10,.55);
+    display:flex;align-items:center;justify-content:center;z-index:50;
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  }
 
   /* 移动端适配 */
   @media (max-width:600px){
-    .wrap{padding:12px 10px 32px}
-    h1{font-size:18px}
+    .wrap{padding:16px 12px 36px}
+    h1{font-size:19px}
     .enemyGrid{grid-template-columns:1fr}
-    .domino{width:78px}
-    .dHalf{height:42px}
-    .pipgrid{width:30px;height:30px;gap:1px}
+    .domino{width:82px}
+    .dHalf{height:44px}
+    .pipgrid{width:30px;height:30px;gap:2px}
     .pip{width:6px;height:6px}
-    .hand{gap:7px}
-    .btn{padding:10px 13px;font-size:13px}
-    .actions{gap:7px}
-    .axisRow{gap:6px}
-    .axisRow .label{min-width:42px;font-size:12px}
-    .axisRow .value{min-width:54px;font-size:13px}
-    .track{height:30px}
-    .dEffect{font-size:10px;min-height:34px}
+    .hand{gap:8px}
+    .btn{padding:10px 14px;font-size:13px}
+    .actions{gap:8px}
+    .axisRow{gap:8px}
+    .axisRow .label{min-width:42px;font-size:10px}
+    .axisRow .value{min-width:54px;font-size:15px}
+    .track{height:28px}
+    .dEffect{font-size:10px;min-height:36px}
   }
 </style>
 </head>
