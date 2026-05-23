@@ -113,6 +113,53 @@
   }
   .ghost:hover{border-color:var(--ink);color:var(--ink)}
 
+  /* ---- 战斗双栏：桌面左栏 = 敌人+数轴，右栏 = 预演；移动端单栏 ---- */
+  .battle-main{margin-bottom:14px}
+  .battle-stack{display:flex;flex-direction:column;gap:14px}
+  @media (min-width:900px){
+    .battle-main{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+      gap:14px;
+      align-items:start;
+    }
+    .battle-main > .panel{margin-bottom:0}
+    .battle-stack > .panel{margin-bottom:0}
+    #preview{
+      position:sticky;
+      top:18px;
+      max-height:calc(100vh - 40px);
+      overflow-y:auto;
+      scrollbar-width:thin;
+    }
+    #preview::-webkit-scrollbar{width:6px}
+    #preview::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:3px}
+    #preview::-webkit-scrollbar-track{background:transparent}
+  }
+  @media (max-width:899px){
+    /* 移动端：preview 不要把手牌挤下去，给它一个高度上限 + 内部滚动 */
+    #preview{
+      max-height:34vh;
+      overflow-y:auto;
+      scrollbar-width:thin;
+    }
+    #preview::-webkit-scrollbar{width:5px}
+    #preview::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:3px}
+    /* 操作按钮贴底，方便单手触达；手牌正常流，preview 上限保证手牌可见 */
+    .actions{
+      position:sticky;
+      bottom:0;
+      z-index:8;
+      background:var(--bg);
+      padding:10px 0 8px;
+      margin:0 -12px;
+      padding-left:12px;
+      padding-right:12px;
+      border-top:1px solid var(--line);
+      box-shadow:0 -4px 12px rgba(0,0,0,.04);
+    }
+  }
+
   /* 敌人 */
   #enemyPanel{padding:16px 18px;margin-bottom:14px}
   .enemyHead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
@@ -514,25 +561,29 @@
       <button class="tutBtn" id="tutBtn">知道了</button>
     </div>
 
-    <div class="panel" id="enemyPanel">
-      <div class="enemyHead">
-        <h2 id="eName">敌人</h2><span class="role" id="eRole"></span>
-      </div>
-      <div class="hpbar"><div class="hpfill" id="eHpFill"></div></div>
-      <div class="enemyMeta"><b>血量</b> <span id="eHpText"></span><span id="eShield"></span> · <b>机制</b> <span id="eMech"></span></div>
-      <div class="intent" id="eIntent"></div>
-    </div>
+    <div class="battle-main">
+      <div class="battle-stack">
+        <div class="panel" id="enemyPanel">
+          <div class="enemyHead">
+            <h2 id="eName">敌人</h2><span class="role" id="eRole"></span>
+          </div>
+          <div class="hpbar"><div class="hpfill" id="eHpFill"></div></div>
+          <div class="enemyMeta"><b>血量</b> <span id="eHpText"></span><span id="eShield"></span> · <b>机制</b> <span id="eMech"></span></div>
+          <div class="intent" id="eIntent"></div>
+        </div>
 
-    <div class="panel" id="axisPanel">
-      <div class="axisTitle">
-        <span>你的数轴 —— 两条各从 0 开始，任一条到 9 失败（神不可被直接攻击，敌方只能扰动数轴）</span>
-        <span id="axisState"></span>
+        <div class="panel" id="axisPanel">
+          <div class="axisTitle">
+            <span>你的数轴 —— 两条各从 0 开始，任一条到 9 失败（神不可被直接攻击，敌方只能扰动数轴）</span>
+            <span id="axisState"></span>
+          </div>
+          <div class="axisPair" id="axis"></div>
+          <div class="statusBar" id="statusBar"></div>
+        </div>
       </div>
-      <div class="axisPair" id="axis"></div>
-      <div class="statusBar" id="statusBar"></div>
-    </div>
 
-    <div class="panel" id="preview"><span class="ph">从下方手牌中选择 1~2 张，这里会分两层一步步演算给你看。</span></div>
+      <div class="panel" id="preview"><span class="ph">从下方手牌中选择 1~2 张，这里会分两层一步步演算给你看。</span></div>
+    </div>
 
     <div class="panel handWrap">
       <div class="handTitle" id="handTitle">手牌（点击选择，最多 2 张）</div>
