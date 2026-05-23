@@ -581,9 +581,10 @@
     <div class="enemyGrid" id="enemyGrid"></div>
     <button class="toolLink" id="btnTool">🔧 设计者：卡牌校验工具（W/S 系数 · 每张卡数值调参）</button>
     <div class="note">
-      规则速记 —— 两条数轴（正轴 / 负轴）各从 0 起，任一条到 <b>9</b> 失败、到 <b>8</b> 解锁觉醒技。
-      初始位置 <b>+4 / -4</b>。每回合发 5 张手牌，可多次出牌，由你点「结束回合」。
-      牌组转一圈后压力上升。两张牌首位数字相同则触发<b>连击</b>。
+      规则速记 —— 两条数轴（正轴 / 负轴）各从 0 起，任一条到 <b>9</b> 失败。
+      初始位置 <b>+4 / -4</b>。每回合发 5 张手牌，出 1~2 张即进入下一轮次。
+      抽牌堆见底洗回 → 所有卡面 <b>+1</b>。点「结束回合」让敌方行动并重置费用。
+      两张牌首位数字相同则触发<b>连击</b>。
     </div>
   </div>
 
@@ -622,7 +623,6 @@
         <div class="actions">
           <button class="btn play" id="btnPlay" disabled>确认出牌</button>
           <button class="btn skip" id="btnSkip">结束回合 →</button>
-          <button class="btn skill" id="btnSkill" disabled>觉醒技 · 归元（任一轴 ≥8 解锁）</button>
         </div>
       </div>
 
@@ -925,7 +925,7 @@ const TUT = [
   {text:'预演会告诉你：① 这张牌的「数字」会把数轴推到哪（先结算）；② 这张牌的「效果」是什么（再结算）。<b>你永远不需要自己心算。</b>',btn:'知道了'},
   {text:'点绿色 <b>「确认出牌」</b>，把这张牌打出去。',await:'play'},
   {text:'一个回合里你可以多次出牌。出完想出的，点 <b>「结束回合」</b> —— 敌方行动，然后抽到新的 5 张。',btn:'知道了'},
-  {text:'最后两个概念：① 一次选 <b>两张</b> 首位数字相同的牌触发 <b>连击</b>（纯奖励）。② 任一轴到 <b>8</b> 解锁觉醒技「归元」（把两轴重置为 4）。',btn:'知道了'},
+  {text:'最后一个概念：一次选 <b>两张</b> 首位数字相同的牌触发 <b>连击</b>（纯奖励，含数轴回稳 / 额外伤害）。',btn:'知道了'},
   {text:'<b>教学结束！</b>木偶不会反击，随便练。准备好后点右上角「换对手」。',btn:'完成教学'},
 ];
 
@@ -1196,7 +1196,6 @@ function render(preview){
   });
   $('handTitle').textContent = `手牌（本轮剩 ${G.hand.length} 张 · 点击选择，最多 2 张）`;
   $('btnPlay').disabled = G.sel.length===0 || G.over;
-  $('btnSkill').disabled = !((G.pos>=CFG.skillUnlockAt||G.neg>=CFG.skillUnlockAt) && !G.skillUsed) || G.over;
   $('btnSkip').disabled = G.over;
 }
 
@@ -1903,7 +1902,7 @@ $('cfgImportBtn').onclick = importConfig;
 $('tutBtn').onclick = tutNext;
 $('btnPlay').onclick = doPlay;
 $('btnSkip').onclick = endTurn;
-$('btnSkill').onclick = doSkill;
+// 觉醒技按钮暂时移出 UI（策划完成前先隐藏），doSkill() 函数保留
 $('btnQuit').onclick = showStart;
 $('ovBtn').onclick = showStart;
 window.addEventListener('resize', () => {
