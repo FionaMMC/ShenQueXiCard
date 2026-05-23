@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>数轴卡牌 · 规则模拟器（测试版）</title>
+<title>神雀玺 · 卡牌规则模拟器（测试版）</title>
 <style>
   :root{
     --bg:#f4f1ea; --panel:#ffffff; --ink:#1c1b18; --muted:#6f6a60;
@@ -48,25 +48,40 @@
   .enemyMeta{font-size:12.5px;color:var(--muted)}
   .intent{margin-top:8px;font-size:13px;background:#fbf6e9;border:1px dashed var(--gold);
     border-radius:7px;padding:6px 10px;color:#7a5e1f}
+  .eShieldBadge{display:inline-block;background:#d8e3d4;color:#3a7d44;border-radius:5px;padding:2px 7px;
+    font-size:11.5px;margin-left:6px;font-weight:700}
 
-  /* 数轴 */
+  /* 数轴 —— 两条横向数轴，上正下负 */
   #axisPanel{padding:18px 16px 12px;margin-bottom:12px}
   .axisTitle{font-size:13px;color:var(--muted);margin-bottom:14px;display:flex;
     justify-content:space-between;gap:8px;flex-wrap:wrap}
-  .axis{position:relative;height:74px;margin:0 6px}
-  .axisLine{position:absolute;top:46px;left:0;right:0;height:4px;background:var(--line);border-radius:2px}
-  .tick{position:absolute;top:40px;width:2px;height:16px;background:#cdc6b6;transform:translateX(-1px)}
-  .tick.zero{height:30px;top:33px;width:3px;background:#9a9382}
-  .tick.danger{background:var(--danger)}
-  .ticklabel{position:absolute;top:60px;font-size:10px;color:var(--muted);transform:translateX(-50%)}
-  .ticklabel.zero{font-weight:700;color:var(--ink)}
-  .marker{position:absolute;top:6px;width:34px;height:34px;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;
-    transform:translateX(-50%);transition:left .45s cubic-bezier(.4,1.2,.5,1);box-shadow:var(--shadow);z-index:3}
-  .marker.pos{background:var(--pos)}
-  .marker.neg{background:var(--neg)}
-  .marker.ghost2{opacity:.38;top:6px;transition:none;z-index:2}
-  .axisEnds{display:flex;justify-content:space-between;font-size:11px;color:var(--danger);margin-top:2px;padding:0 2px}
+  .axisPair{display:flex;flex-direction:column;gap:12px;margin:0 4px}
+  .axisRow{display:flex;align-items:center;gap:10px}
+  .axisRow .label{font-size:13px;font-weight:700;min-width:54px;text-align:right}
+  .axisRow.pos .label{color:var(--pos)}
+  .axisRow.neg .label{color:var(--neg)}
+  .axisRow .shieldChip{font-size:11px;background:#d6e5cf;color:#3a7d44;border-radius:5px;
+    padding:1px 6px;font-weight:700;margin-left:-4px}
+  .track{position:relative;flex:1;height:34px;background:#f0ebe0;border:1px solid var(--line);
+    border-radius:7px;overflow:hidden}
+  .fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px 0 0 6px;
+    transition:width .45s cubic-bezier(.4,1.2,.5,1)}
+  .axisRow.pos .fill{background:linear-gradient(90deg,#9fc1e6,#2f6fb0)}
+  .axisRow.neg .fill{background:linear-gradient(90deg,#eebab0,#c0492f)}
+  .ghostFill{position:absolute;top:0;bottom:0;background:rgba(0,0,0,.18);border:1px dashed rgba(0,0,0,.35);
+    border-radius:4px;pointer-events:none}
+  .tickG{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none}
+  .tickG .t{position:absolute;top:0;bottom:0;width:1px;background:rgba(0,0,0,.10)}
+  .tickG .t.major{background:rgba(0,0,0,.28);width:2px}
+  .tickG .t.danger{background:rgba(210,59,42,.5);width:2px}
+  .tickG .lbl{position:absolute;top:50%;transform:translateX(-50%) translateY(-50%);
+    font-size:10px;color:#000;opacity:.45;font-weight:600}
+  .axisRow .value{min-width:64px;text-align:left;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+  .axisRow.pos .value{color:var(--pos)}
+  .axisRow.neg .value{color:var(--neg)}
+  .axisRow .value .delta{font-size:12px;font-weight:600;color:var(--muted);margin-left:3px}
+  .axisRow .value .delta.up{color:var(--danger)}
+  .axisRow .value .delta.dn{color:var(--ok)}
   .statusBar{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);
     margin-top:10px;padding-top:8px;border-top:1px solid var(--line)}
   .statusBar b{color:var(--ink)}
@@ -84,6 +99,8 @@
     border-radius:6px;color:var(--danger);font-weight:700}
   .pvCombo{margin-top:6px;padding:6px 9px;background:#fbf3df;border:1px solid var(--gold);
     border-radius:6px;color:#7a5e1f;font-weight:700}
+  .pvEffect{margin-top:5px;padding:5px 9px;background:#eaf3ee;border-left:3px solid var(--ok);
+    border-radius:0 5px 5px 0;color:#1f5b2b;font-size:12.5px}
   .pvResult{padding:11px 14px;border-top:2px solid var(--line);background:#fcfaf4}
   .pvAxis{font-size:14px;margin-bottom:5px}
   .tagPos{color:var(--pos);font-weight:700}
@@ -98,11 +115,11 @@
   .handWrap{padding:12px 14px;margin-bottom:12px}
   .handTitle{font-size:13px;color:var(--muted);margin-bottom:10px}
   .hand{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
-  .domino{width:84px;border:1px solid var(--line);border-radius:9px;background:#fffef9;
+  .domino{width:96px;border:1px solid var(--line);border-radius:9px;background:#fffef9;
     cursor:pointer;transition:.13s;box-shadow:var(--shadow);overflow:hidden;position:relative}
   .domino:hover{transform:translateY(-3px)}
   .domino.sel{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
-  .dHalf{height:54px;display:flex;align-items:center;justify-content:center;position:relative}
+  .dHalf{height:50px;display:flex;align-items:center;justify-content:center;position:relative}
   .dHalf.top{border-bottom:1px solid var(--line)}
   .pipgrid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);
     width:38px;height:38px;gap:2px}
@@ -111,9 +128,13 @@
   .dBadge{font-size:10px;text-align:center;padding:3px 1px;font-weight:700;line-height:1.3}
   .dBadge.up{background:#eaf1f8;color:var(--pos)}
   .dBadge.rev{background:#f8ece8;color:var(--neg)}
-  .dFace{font-size:11px;text-align:center;color:var(--muted);padding:3px 2px 5px;border-top:1px solid var(--line)}
+  .dEffect{font-size:10.5px;text-align:center;color:var(--ink);padding:4px 4px 6px;
+    border-top:1px solid var(--line);line-height:1.35;min-height:38px}
+  .dEffect .dKind{color:var(--muted);font-size:9.5px;display:block;margin-bottom:2px}
   .selOrder{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;
     background:var(--gold);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700}
+  .cardCorner{position:absolute;top:3px;left:3px;font-size:10px;font-weight:700;
+    background:#f4f1ea;color:var(--muted);padding:1px 5px;border-radius:4px}
 
   /* 操作按钮 */
   .actions{display:flex;gap:10px;justify-content:center;margin-bottom:12px;flex-wrap:wrap}
@@ -125,7 +146,7 @@
   .btn.skill:disabled{background:#d6cdb5;cursor:not-allowed}
 
   /* 日志 */
-  #log{padding:10px 14px;font-size:12.5px;max-height:160px;overflow-y:auto}
+  #log{padding:10px 14px;font-size:12.5px;max-height:180px;overflow-y:auto}
   #log .e{padding:3px 0;border-bottom:1px dotted var(--line)}
   #log .e:last-child{border:none}
   #log .turn{color:var(--gold);font-weight:700}
@@ -169,10 +190,23 @@
     border-radius:6px;padding:5px 9px}
   .tuneItem input{width:64px;font-family:inherit;font-size:13px;padding:3px 5px;
     border:1px solid var(--line);border-radius:5px;text-align:right}
-  .tuneHd{font-size:12px;font-weight:700;color:var(--gold);margin:10px 0 5px}
-  #cfgImport{flex:1;min-height:52px;font-family:monospace;font-size:12px;
+  .tuneHd{font-size:12px;font-weight:700;color:var(--gold);margin:14px 0 5px;
+    padding-top:8px;border-top:1px dashed var(--line)}
+  .tuneHd:first-of-type{margin-top:4px;padding-top:0;border-top:none}
+  #cfgImport{flex:1;min-height:60px;font-family:monospace;font-size:12px;
     padding:6px;border:1px solid var(--line);border-radius:6px;resize:vertical}
-  @media (max-width:600px){ .tuneGrid{grid-template-columns:1fr} }
+  .cardTuneRow{display:grid;grid-template-columns:auto 1fr 1fr;gap:6px;align-items:center;
+    padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fffef9;
+    margin-bottom:5px;font-size:12px}
+  .cardTuneRow .cName{font-weight:700;color:var(--gold);font-size:12.5px}
+  .cardTuneRow .cSide{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+  .cardTuneRow .cSide label{display:flex;align-items:center;gap:3px}
+  .cardTuneRow input{width:48px;font-family:inherit;font-size:12px;padding:2px 4px;
+    border:1px solid var(--line);border-radius:4px;text-align:right}
+  @media (max-width:600px){
+    .tuneGrid{grid-template-columns:1fr}
+    .cardTuneRow{grid-template-columns:1fr}
+  }
 
   .footer{text-align:center;font-size:11.5px;color:#a39c8c;margin-top:22px;line-height:1.7}
   .note{font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.7}
@@ -182,15 +216,18 @@
     .wrap{padding:12px 10px 32px}
     h1{font-size:18px}
     .enemyGrid{grid-template-columns:1fr}
-    .domino{width:62px}
-    .dHalf{height:40px}
+    .domino{width:78px}
+    .dHalf{height:42px}
     .pipgrid{width:30px;height:30px;gap:1px}
     .pip{width:6px;height:6px}
     .hand{gap:7px}
-    .marker{width:26px;height:26px;font-size:11px}
-    .axis{height:66px}
     .btn{padding:10px 13px;font-size:13px}
     .actions{gap:7px}
+    .axisRow{gap:6px}
+    .axisRow .label{min-width:42px;font-size:12px}
+    .axisRow .value{min-width:54px;font-size:13px}
+    .track{height:30px}
+    .dEffect{font-size:10px;min-height:34px}
   }
 </style>
 </head>
@@ -199,16 +236,16 @@
 
   <!-- ================= 开始界面 ================= -->
   <div id="start">
-    <h1>数轴卡牌 · 规则模拟器</h1>
-    <div class="sub">借多米诺骨牌之形 · 在一条 0~±9 的数轴上做正负博弈。</div>
+    <h1>神雀玺 · 规则模拟器</h1>
+    <div class="sub">借多米诺骨牌之形 · 用十张设计文档卡牌在两条 0~9 数轴上博弈。</div>
     <button class="tutStart" id="btnTutorial">▶ 第一次玩？点这里 · 手把手新手教学</button>
-    <div class="sub" style="margin-top:18px">或直接挑战对手（建议先打绿标的「初窥门径的学徒」）：</div>
+    <div class="sub" style="margin-top:18px">或直接挑战对手（建议先打绿标的「无脑筋肉人」）：</div>
     <div class="enemyGrid" id="enemyGrid"></div>
-    <button class="toolLink" id="btnTool">🔧 设计者：卡牌校验工具（W系数 / S系数）</button>
+    <button class="toolLink" id="btnTool">🔧 设计者：卡牌校验工具（W/S 系数 · 每张卡数值调参）</button>
     <div class="note">
-      规则速记 —— 数轴任意一侧到 <b>±9</b> 失败、到 <b>±8</b> 解锁觉醒技。
-      正位牌＝进攻，倒位牌＝回稳＋护盾。每回合发 5 张手牌，可多次出牌，由你点「结束回合」。
-      牌组转一圈，敌方压力会升级。两张牌首位数字相同则触发<b>连击</b>。
+      规则速记 —— 两条数轴（正轴 / 负轴）各从 0 起，任一条到 <b>9</b> 失败、到 <b>8</b> 解锁觉醒技。
+      初始位置 <b>+4 / -4</b>。每回合发 5 张手牌，可多次出牌，由你点「结束回合」。
+      牌组转一圈后压力上升。两张牌首位数字相同则触发<b>连击</b>。
     </div>
   </div>
 
@@ -229,17 +266,16 @@
         <h2 id="eName">敌人</h2><span class="role" id="eRole"></span>
       </div>
       <div class="hpbar"><div class="hpfill" id="eHpFill"></div></div>
-      <div class="enemyMeta"><b>血量</b> <span id="eHpText"></span> · <b>机制</b> <span id="eMech"></span></div>
+      <div class="enemyMeta"><b>血量</b> <span id="eHpText"></span><span id="eShield"></span> · <b>机制</b> <span id="eMech"></span></div>
       <div class="intent" id="eIntent"></div>
     </div>
 
     <div class="panel" id="axisPanel">
       <div class="axisTitle">
-        <span>你的数轴 —— 你是「神」，不可被直接攻击，敌方只能扰动数轴（任意一侧到 ±9 失败）</span>
+        <span>你的数轴 —— 两条各从 0 开始，任一条到 9 失败（神不可被直接攻击，敌方只能扰动数轴）</span>
         <span id="axisState"></span>
       </div>
-      <div class="axis" id="axis"></div>
-      <div class="axisEnds"><span>−9 失败</span><span>+9 失败</span></div>
+      <div class="axisPair" id="axis"></div>
       <div class="statusBar" id="statusBar"></div>
     </div>
 
@@ -253,7 +289,7 @@
     <div class="actions">
       <button class="btn play" id="btnPlay" disabled>确认出牌</button>
       <button class="btn skip" id="btnSkip">结束回合 →</button>
-      <button class="btn skill" id="btnSkill" disabled>觉醒技 · 归元（±8解锁）</button>
+      <button class="btn skill" id="btnSkill" disabled>觉醒技 · 归元（任一轴 ≥8 解锁）</button>
     </div>
 
     <div class="panel" id="log"></div>
@@ -267,14 +303,14 @@
     </div>
     <div class="panel" style="padding:14px 16px;margin-bottom:12px">
       <div class="toolIntro">
-        <b>W系数（资源量）</b>＝玩家打出的卡面数字之和，理论上限 24。衡量「卡牌效果与费用分布是否合理」。<br>
-        <b>S系数（系统变化量）</b>＝卡牌经单牌结算 / 双牌干涉后，对数轴的最终偏移（不含贯穿）。衡量「单卡与双卡花同等费用、所能达到的效果与风险之比」。<br>
-        二者都<b>不参与游戏规则</b>，只是把不同卡牌拉到同一标准下比较、优化卡组结构的工具。
+        <b>W 系数（资源量）</b> ＝ 玩家打出的卡面数字之和，理论上限 24。衡量「卡牌效果与费用分布是否合理」。<br>
+        <b>S 系数（系统变化量）</b> ＝ 卡牌经单牌结算 / 双牌干涉后，对数轴的最终偏移（不含贯穿）。衡量「单卡与双卡花同等费用、所能达到的效果与风险之比」。<br>
+        二者都 <b>不参与游戏规则</b>，只是把不同卡牌拉到同一标准下比较、优化卡组结构的工具。
       </div>
     </div>
     <div class="panel" style="padding:14px 16px;margin-bottom:12px">
-      <h3>① 28 张初始牌组 · W系数与强度梯级</h3>
-      <div class="sub" style="margin-bottom:10px">按「使用点数」分组（使用点数 ＝ 7 − 较小点数）。梯级按 W 系数：
+      <h3>① 当前 10 张卡 · W 系数与梯级</h3>
+      <div class="sub" style="margin-bottom:10px">梯级按 W 系数：
         <span class="t0">低 0–3</span> ·
         <span class="t1">中 4–6</span> ·
         <span class="t2">高 7–9</span> ·
@@ -282,7 +318,7 @@
       <div id="wTable"></div>
     </div>
     <div class="panel" style="padding:14px 16px">
-      <h3>② 双牌交叉 · W系数 / S系数 计算器</h3>
+      <h3>② 双牌交叉 · W 系数 / S 系数 计算器</h3>
       <div class="sRow">牌1
         <select id="sc1"></select>
         <select id="sc1o"><option>正位</option><option>倒位</option></select>
@@ -316,7 +352,7 @@
 
 </div>
 
-<div class="footer" id="footer">数轴卡牌 · 规则模拟器 测试版 v0.4 — 含平衡调参与导出<br>欢迎测试并反馈手感、平衡、看不懂的地方</div>
+<div class="footer" id="footer">神雀玺 · 规则模拟器 测试版 v0.5 — 设计文档 10 张卡 · 三类无脑筋肉人<br>欢迎测试并反馈手感、平衡、看不懂的地方</div>
 
 <!-- ================= 结算遮罩 ================= -->
 <div id="overlay" class="hidden">
@@ -332,42 +368,75 @@
 
 /* =========================================================
    ★ 平衡配置 —— 所有可调数值集中在此
-   可在「校验工具 → ③平衡调参」中修改 / 导出 / 导入
    ========================================================= */
-const DEFAULT_CONFIG={
-  handSize:5,            // 每回合手牌张数
-  singleDmgRatio:0.6,    // 单卡进攻收益系数（双卡为满额 1.0）
-  shieldMax:3,           // 护盾层数上限
-  cyclePressure:1,       // 轮次压力系数（敌方每次额外 + 轮次×此值）
-  skillResetTo:3,        // 觉醒技「归元」把双轴设为的值
-  enemies:{
-    apprentice:{hp:38,push:1},
-    surgeon:{hp:50,push:2},
-    homeo:{hp:54,push:2},
-    ascetic:{hp:52,push:2,heal:8},
-    zealot:{hp:60,push:2},
+const DEFAULT_CONFIG = {
+  /* ---- 全局 ---- */
+  initialAxis: 4,        // 初始数轴位置（正轴 +N、负轴 -N）
+  handSize: 5,           // 每回合手牌张数
+  cyclePressure: 1,      // 牌组每转一圈，敌方行动额外推力
+  skillResetTo: 4,       // 觉醒技「归元」把双轴设为的值
+  skillUnlockAt: 8,      // 任一轴达到此值时解锁觉醒技
+
+  /* ---- 10 张设计文档卡 · 每张可调数值 ---- */
+  cards: {
+    '00': { up:{ nextTurnBonus:1, doubleEffect:true }, rev:{ nextTurnBonus:1, doubleEffect:true } },
+    '01': { up:{ axisDelta:-1 }, rev:{ damage:3 } },
+    '11': { up:{ axisDelta:+1 }, rev:{ damage:5 } },
+    '02': { up:{ shield:2 }, rev:{ cancelEnemyNext:true } },
+    '03': { up:{ axisDelta:-2 }, rev:{ damage:6 } },
+    '12': { up:{ immuneDebuff:true }, rev:{ enemyShield:6 } },
+    '04': { up:{ axisDelta:+2 }, rev:{ damage:10 } },
+    '13': { up:{ shield:3 }, rev:{ cancelEnemyNext:true, shield:3 } },
+    '24': { up:{ axisDelta:+2, executeThreshold:0.40, executeBonus:0.10 }, rev:{ damage:16 } },
+    '33': { up:{ resetToInitial:true }, rev:{ swapAxes:true } },
+  },
+
+  /* ---- 3 个无脑筋肉人 ---- */
+  enemies: {
+    grunt:       { hp:60 },
+    grunt_pro:   { hp:60 },
+    grunt_group: { hp:60 },
   },
 };
 function clone(o){ return JSON.parse(JSON.stringify(o)); }
-let CFG=clone(DEFAULT_CONFIG);   // 当前生效配置
+let CFG = clone(DEFAULT_CONFIG);
 
 /* =========================================================
-   一、卡牌与数轴模型
+   一、卡牌数据 —— 设计文档 10 张卡
+   每张：pip 值 (a, b) + 卡类型 + 文案
+   具体数值由 CFG.cards[id] 提供（可调）
    ========================================================= */
+const CARDS = [
+  { id:'00', a:0, b:0, type:'effect',  name:'00 · 奇点',  hint:'下一轮卡牌正倒费用 +N，效果翻倍（可续杯，正倒效果相同）' },
+  { id:'01', a:0, b:1, type:'attack',  name:'01 · 神性削轴', hint:'正位：任意数轴 −N ／ 倒位：造成伤害' },
+  { id:'11', a:1, b:1, type:'attack',  name:'11 · 神性独立', hint:'正位：任意数轴 +N ／ 倒位：造成伤害' },
+  { id:'02', a:0, b:2, type:'defense', name:'02 · 二之盾',   hint:'正位：选一条数轴套盾 N ／ 倒位：使敌方下次受影响消失' },
+  { id:'03', a:0, b:3, type:'attack',  name:'03 · 稳定削减', hint:'正位：任意数轴 −N ／ 倒位：造成伤害' },
+  { id:'12', a:1, b:2, type:'defense', name:'12 · 御 debuff',hint:'正位：免疫敌方下次 debuff ／ 倒位：为敌方增加 N 护盾' },
+  { id:'04', a:0, b:4, type:'attack',  name:'04 · 稳序推动', hint:'正位：任意数轴 +N ／ 倒位：造成伤害' },
+  { id:'13', a:1, b:3, type:'defense', name:'13 · 三之盾',   hint:'正位：选一条数轴套盾 N ／ 倒位：取消敌方下次行动并套盾' },
+  { id:'24', a:2, b:4, type:'mid',     name:'24 · 秩序加压', hint:'正位：任意数轴 +N，敌方 HP<40% 触发重伤 ／ 倒位：高伤害' },
+  { id:'33', a:3, b:3, type:'mid',     name:'33 · 三才归元', hint:'正位：数轴回到初始 4-4（最终结算）／ 倒位：正负数轴对调' },
+];
+const CARD_BY_ID = Object.fromEntries(CARDS.map(c=>[c.id, c]));
+
 function buildDeck(){
-  const deck=[];
-  for(let a=0;a<=6;a++) for(let b=a;b<=6;b++) deck.push({a,b});
-  return deck; // 28 张多米诺，点数不重复（初始牌组）
+  // 初始牌组：设计文档指定的 10 张
+  return CARDS.map(c => ({ id:c.id, a:c.a, b:c.b }));
 }
+
+/* ---- 卡牌 face：正位 (a, b)；倒位 (b, a) 翻转 ---- */
 function faceOf(card){
   if(card.orient==='upright') return {first:{val:card.a,sign:+1},last:{val:card.b,sign:-1}};
   return {first:{val:card.b,sign:-1},last:{val:card.a,sign:+1}};
 }
-const power = c => c.a + c.b;                       // 效果强度＝点数之和（也是 W 系数贡献）
-const hasBigPip = c => c.a>=5||c.b>=5;              // 含 5/6 点数
-const usePoints = c => 7 - Math.min(c.a,c.b);       // 使用点数 ＝ 7 − 较小点数
+const power = c => c.a + c.b;          // W 系数贡献
+const hasBigPip = c => c.a>=5||c.b>=5; // 含 5/6 点数（备用）
+const usePoints = c => 7 - Math.min(c.a,c.b);
 
-/* ---- 贯穿：某侧穿过基线 0，溢出量翻到对侧；至多两次 ---- */
+/* =========================================================
+   二、数轴结算 —— 单牌、双牌、贯穿（计算逻辑不变）
+   ========================================================= */
 function resolvePierce(pos,neg){
   let guard=0; const pierce=[];
   while((pos<0||neg<0)&&guard<2){
@@ -380,7 +449,6 @@ function resolvePierce(pos,neg){
   return {pos,neg,pierce};
 }
 
-/* ---- 单牌：首位与主轴相加，末位与次轴相减 ---- */
 function calcSingle(pos,neg,card){
   const f=faceOf(card);
   const mainIsPos=f.first.sign>0;
@@ -400,7 +468,6 @@ function calcSingle(pos,neg,card){
   return {pos:r.pos,neg:r.neg,num,pierce:r.pierce,mainNote};
 }
 
-/* ---- 双牌：交叉相减 ---- */
 function calcDouble(pos,neg,c1,c2){
   const f1=faceOf(c1), f2=faceOf(c2);
   const r1=f1.first.val - f2.last.val;
@@ -428,101 +495,111 @@ function comboNumber(c1,c2){
   const v1=faceOf(c1).first.val, v2=faceOf(c2).first.val;
   return v1===v2 ? v1 : null;
 }
+/* 连击 7 种效果 —— 设计文档未详述，此处为占位推演 */
 const COMBO=[
   {n:0,name:'奇点·循环', desc:'弃掉手牌并重抽 5 张'},
   {n:1,name:'神性·独立', desc:'对敌方造成 8 点额外伤害'},
   {n:2,name:'和谐·平衡', desc:'正负数轴各向 0 拉回 2'},
-  {n:3,name:'三位·生机', desc:'额外造成 6 伤害，并回稳 3'},
+  {n:3,name:'三位·生机', desc:'额外造成 6 伤害，并较高一侧 −3'},
   {n:4,name:'物质·秩序', desc:'抵消本次出牌对数轴的全部变化'},
   {n:5,name:'精神·规律', desc:'敌方下一次行动被免除'},
   {n:6,name:'终极·完美', desc:'对敌方造成 12 点毁灭伤害'},
 ];
 
 /* =========================================================
-   二、敌人定义
+   三、敌人 —— 3 个无脑筋肉人，pattern 数据驱动
+   pattern step types:
+     {type:'atk', value:N}   - 攻击随机一侧 +N
+     {type:'skill'}           - 施加 debuff：你下一回合数轴变化 +1（限一回合）
+     {type:'buff'}            - 强化自身：后续攻击 +1
    ========================================================= */
-const ENEMIES=[
+const ENEMIES = [
   {
-    id:'apprentice', name:'初窥门径的学徒', role:'The Apprentice', simple:true,
-    quote:'“我也还在学……我们慢慢来，好不好？”',
-    mech:'无特殊机制。每回合只把随机一侧推动少许，是最温和的对手。',
-    hint:'适合第一次实战：专心感受「正位进攻 / 倒位回稳」的来回节奏即可。',
-    push(g){ const p=CFG.enemies.apprentice.push;
-      if(Math.random()<.5)g.pos+=p; else g.neg+=p; return '随机一侧 +'+p; },
-    intentText(){ return '下回合：随机一侧 +'+CFG.enemies.apprentice.push+'（很轻微）。'; },
+    id:'grunt', name:'无脑筋肉人', role:'Brute · Lv.1', simple:true,
+    quote:'',
+    mech:'无特殊效果。随机攻击正 / 负轴，节奏：攻1、技能、攻1、攻3 循环。',
+    hint:'最温和的对手，适合熟悉 10 张卡的手感。',
+    pattern:[
+      {type:'atk', value:1},
+      {type:'skill'},
+      {type:'atk', value:1},
+      {type:'atk', value:3},
+    ],
   },
   {
-    id:'surgeon', name:'提灯的拾骨者', role:'The Triage Surgeon',
-    quote:'“为什么你总是妄想两全其美？”',
-    mech:'临床分诊：负数轴被锁定，倒位牌的「回稳」无法减少负数轴。每回合推高负数轴。',
-    hint:'顺从＝靠数字运算压低负轴；我行我素＝无视它、强攻速杀。',
-    push(g){ const p=CFG.enemies.surgeon.push; g.neg+=p; return '负数轴 +'+p+'（强行分诊）'; },
-    intentText(){ return '下回合：负数轴 +'+CFG.enemies.surgeon.push+'，且锁定其回稳。'; },
-    lockNeg:true,
+    id:'grunt_pro', name:'无脑筋肉人 pro', role:'Brute · Lv.2',
+    quote:'',
+    mech:'随机攻击正 / 负轴；节奏：攻1、技能、攻1、攻3、强化、攻2、技能、攻2、攻4。',
+    hint:'比 Lv.1 多一段强化与升级节奏，中后段压力陡增。',
+    pattern:[
+      {type:'atk', value:1},
+      {type:'skill'},
+      {type:'atk', value:1},
+      {type:'atk', value:3},
+      {type:'buff'},
+      {type:'atk', value:2},
+      {type:'skill'},
+      {type:'atk', value:2},
+      {type:'atk', value:4},
+    ],
   },
   {
-    id:'homeo', name:'追求动态平衡的持秤者', role:'The Homeostatic',
-    quote:'“偏科是疾病的开始。唯有均衡，方得长久。”',
-    mech:'天平之罚：每回合攻击 = 基础值 + |正轴−负轴|，数轴越不平衡，它打得越重。',
-    hint:'顺从＝把两轴拉到接近齐平；我行我素＝放任失衡、硬吃高额惩罚。',
-    push(g){ const base=CFG.enemies.homeo.push; const d=Math.abs(g.pos-g.neg); const amt=base+d;
-      if(g.pos<=g.neg) g.pos+=amt; else g.neg+=amt;
-      return `较小一侧 +${amt}（基础${base} ＋ 失衡差值${d}）`; },
-    intentText(g){ const d=Math.abs(g.pos-g.neg);
-      return `下回合：较小一侧 +${CFG.enemies.homeo.push+d}（含失衡差值 ${d}）。`; },
-  },
-  {
-    id:'ascetic', name:'厌恶喧哗的苦行僧', role:'The Ascetic',
-    quote:'“声音太大了。你们的狂热吵得我头疼。”',
-    mech:'噪音税：你每打出一张含 5 或 6 点数的牌，苦行僧回血。每回合随机一侧推动。',
-    hint:'顺从＝只用 0~4 的小数字精细微调；我行我素＝照样大数轰炸、用速度压过回血。',
-    push(g){ const p=CFG.enemies.ascetic.push;
-      if(Math.random()<.5)g.pos+=p; else g.neg+=p; return '随机一侧 +'+p; },
-    intentText(){ return '下回合：随机一侧 +'+CFG.enemies.ascetic.push+'。打出含5/6的牌会让它回血。'; },
-  },
-  {
-    id:'zealot', name:'崇尚极化的狂热煽动者', role:'The Zealot',
-    quote:'“中立是最虚伪的谎言。要么爱我，要么恨我！”',
-    mech:'狂热护盾：只要你两条数轴都 < 6，它受到的伤害减半（向下取整）。每回合随机一侧推动。',
-    hint:'顺从＝主动把一侧推进高危区(≥6)破盾；我行我素＝死守安全区、靠零碎伤害磨。',
-    push(g){ const p=CFG.enemies.zealot.push;
-      if(Math.random()<.5)g.pos+=p; else g.neg+=p; return '随机一侧 +'+p; },
-    intentText(){ return '下回合：随机一侧 +'+CFG.enemies.zealot.push+'。两轴都<6 时它伤害减半。'; },
+    id:'grunt_group', name:'无脑筋肉人 group×3', role:'Brute · 群战',
+    quote:'',
+    mech:'随机攻击正 / 负轴；无玩家技能；节奏：攻1、攻1、攻3、强化、攻2、攻2、攻3。',
+    hint:'没有 debuff 技能，但伤害密集，需要持续控轴。',
+    pattern:[
+      {type:'atk', value:1},
+      {type:'atk', value:1},
+      {type:'atk', value:3},
+      {type:'buff'},
+      {type:'atk', value:2},
+      {type:'atk', value:2},
+      {type:'atk', value:3},
+    ],
   },
 ];
-const PUPPET={
+
+const PUPPET = {
   id:'puppet', name:'稻草傀儡 · 教学木偶', role:'Training Dummy',
   hp:34, quote:'',
   mech:'教学木偶——它不会反击，你不可能输。放心试。',
   hint:'',
-  push(g){ return null; },
-  intentText(){ return '它静静站着，不会行动。'; },
+  pattern:[],
 };
 
-const TUT=[
-  {text:'<b>欢迎！</b>你扮演一位神，战斗发生在一条数轴上。看上方面板中间那条横线——左边红点、右边蓝点，就是你的数轴，现在都停在 0。任何一个点滑到最边上的 ±9，你就输了。',btn:'知道了'},
-  {text:'看最下方的<b>手牌</b>。每回合发 5 张，每张是一块多米诺骨牌。牌上标着蓝色「正位·进攻」或红色「倒位·回稳」——朝向是抽牌时随机决定的。',btn:'知道了'},
-  {text:'<b>动手试试：</b>点一张标着蓝色「正位·进攻」的牌，把它选中（边框会变金色）。',await:'selUpright'},
-  {text:'选好了！看中间的<b>「预演」框</b>——它已经替你算好：这张牌会把数轴移到哪、对敌人造成多少伤害。<b>你永远不需要自己心算。</b>',btn:'知道了'},
-  {text:'现在点绿色的<b>「确认出牌」</b>按钮，把这张牌打出去。',await:'play'},
-  {text:'敌人掉血了，数轴也动了一下。<b>正位牌能打伤害，代价是它的数字会把数轴推向危险区。</b>一个回合里你可以多次出牌。',btn:'知道了'},
-  {text:'<b>再试一次：</b>这次选一张红色「倒位·回稳」的牌。',await:'selReversed'},
-  {text:'倒位牌不攻击，但它把数轴往中间 0 拉回，还会给你一层<b>护盾</b>（挡掉敌方一次行动）。在进攻和回稳之间找平衡，就是这个游戏的全部。点「确认出牌」。',await:'play'},
-  {text:'两个收尾概念：① 一次选<b>两张</b>首位数字相同的牌会触发<b>连击</b>（纯奖励）。② 出完想出的牌，点<b>「结束回合」</b>——敌方行动，然后你抽到新的 5 张。',btn:'知道了'},
-  {text:'<b>教学结束！</b>木偶不会反击，随便练。准备好后点右上角「换对手」，去挑战绿标的「初窥门径的学徒」。',btn:'完成教学'},
+const TUT = [
+  {text:'<b>欢迎！</b>你扮演一位神，战斗发生在 <b>两条数轴</b> 上 —— 上面是正轴，下面是负轴，初始都停在 <b>4</b>。任一条到 <b>9</b>，你就输了。',btn:'知道了'},
+  {text:'看最下方的 <b>手牌</b>。每回合发 5 张，每张是 10 张设计卡牌中的一张。牌上标着蓝色「正位」或红色「倒位」—— 朝向是抽牌时随机决定的。每张卡<b>正位与倒位的效果完全不同</b>。',btn:'知道了'},
+  {text:'<b>动手试试：</b>点任意一张牌把它选中（边框会变金色），看中间的 <b>「预演」框</b>。',await:'sel'},
+  {text:'预演会告诉你：① 这张牌的「数字」会把数轴推到哪（先结算）；② 这张牌的「效果」是什么（再结算）。<b>你永远不需要自己心算。</b>',btn:'知道了'},
+  {text:'点绿色 <b>「确认出牌」</b>，把这张牌打出去。',await:'play'},
+  {text:'一个回合里你可以多次出牌。出完想出的，点 <b>「结束回合」</b> —— 敌方行动，然后抽到新的 5 张。',btn:'知道了'},
+  {text:'最后两个概念：① 一次选 <b>两张</b> 首位数字相同的牌触发 <b>连击</b>（纯奖励）。② 任一轴到 <b>8</b> 解锁觉醒技「归元」（把两轴重置为 4）。',btn:'知道了'},
+  {text:'<b>教学结束！</b>木偶不会反击，随便练。准备好后点右上角「换对手」。',btn:'完成教学'},
 ];
 
 /* =========================================================
-   三、游戏状态
+   四、游戏状态
    ========================================================= */
-const G={
-  enemy:null, eHp:0, eHpMax:0, pos:0, neg:0, turn:1,
+const G = {
+  enemy:null, eHp:0, eHpMax:0, eShield:0,
+  pos:0, neg:0, turn:1,
   deck:[], discard:[], hand:[], sel:[],
-  skillUsed:false, skipEnemyOnce:false, over:false,
-  cycle:0, shield:0,
+  shields:{pos:0, neg:0},  // 每条数轴的护盾点数
+  enemyPatternIdx:0,
+  enemyAtkBonus:0,         // 强化自身累加
+  debuffNextTurn:false,    // 敌方技能：下一回合数轴变化 +1
+  cancelEnemyNext:false,   // 02倒/13倒：使敌方下次受影响消失
+  immuneNextDebuff:false,  // 12正：免疫下次 debuff
+  executeStacks:0,         // 24正：重伤累加（+10%/层 damage to enemy）
+  nextTurnEffectDouble:false, // 00：下一轮效果翻倍
+  nextTurnFeeBonus:0,         // 00：下一轮数轴变化 +N
+  skillUsed:false, over:false,
+  cycle:0,
   tutorial:false, tutIdx:0,
 };
-const $=id=>document.getElementById(id);
+const $ = id => document.getElementById(id);
 
 function shuffle(arr){
   for(let i=arr.length-1;i>0;i--){
@@ -552,34 +629,44 @@ function refillHand(){
 }
 
 /* ---- 开局 ---- */
-function startBattle(enemy,isTutorial){
-  G.enemy=enemy;
-  const ec=CFG.enemies[enemy.id];
-  G.eHpMax = ec ? ec.hp : (enemy.hp||34);
-  G.eHp=G.eHpMax;
-  G.pos=0; G.neg=0; G.turn=1;
-  G.deck=shuffle(buildDeck()); G.discard=[]; G.hand=[]; G.sel=[];
-  G.skillUsed=false; G.skipEnemyOnce=false; G.over=false;
-  G.cycle=0; G.shield=0;
-  G.tutorial=!!isTutorial; G.tutIdx=0;
+function startBattle(enemy, isTutorial){
+  G.enemy = enemy;
+  const ec = CFG.enemies[enemy.id];
+  G.eHpMax = ec ? ec.hp : (enemy.hp || 34);
+  G.eHp = G.eHpMax;
+  G.eShield = 0;
+  G.pos = CFG.initialAxis; G.neg = CFG.initialAxis;
+  G.turn = 1;
+  G.deck = shuffle(buildDeck()); G.discard = []; G.hand = []; G.sel = [];
+  G.shields = {pos:0, neg:0};
+  G.enemyPatternIdx = 0;
+  G.enemyAtkBonus = 0;
+  G.debuffNextTurn = false;
+  G.cancelEnemyNext = false;
+  G.immuneNextDebuff = false;
+  G.executeStacks = 0;
+  G.nextTurnEffectDouble = false;
+  G.nextTurnFeeBonus = 0;
+  G.skillUsed = false; G.over = false;
+  G.cycle = 0;
+  G.tutorial = !!isTutorial; G.tutIdx = 0;
   refillHand();
   if(G.tutorial){
-    if(G.hand[0])G.hand[0].orient='upright';
-    if(G.hand[1])G.hand[1].orient='upright';
-    if(G.hand[2])G.hand[2].orient='reversed';
-    if(G.hand[3])G.hand[3].orient='reversed';
+    if(G.hand[0]) G.hand[0].orient='upright';
+    if(G.hand[1]) G.hand[1].orient='reversed';
   }
   $('start').classList.add('hidden');
   $('tool').classList.add('hidden');
   $('battle').classList.remove('hidden');
   $('overlay').classList.add('hidden');
-  $('bTitle').textContent='对战 · '+enemy.name;
-  $('eName').textContent=enemy.name;
-  $('eRole').textContent=enemy.role;
-  $('eMech').textContent=enemy.mech;
+  $('bTitle').textContent = '对战 · ' + enemy.name;
+  $('eName').textContent = enemy.name;
+  $('eRole').textContent = enemy.role;
+  $('eMech').textContent = enemy.mech;
   logClear();
   log('<span class="turn">— 回合 1 —</span>');
-  if(enemy.quote) log(enemy.quote,'good');
+  log(`初始数轴：正轴 +${G.pos} ｜ 负轴 −${G.neg}`);
+  if(enemy.quote) log(enemy.quote, 'good');
   tutShow();
   showPreview();
   render();
@@ -608,15 +695,12 @@ function tutCheck(trigger){
   if(!G.tutorial) return;
   const step=TUT[G.tutIdx];
   if(!step||!step.await) return;
-  if(step.await==='selUpright' && trigger==='sel'
-     && selectedCards().some(c=>c.orient==='upright')) tutNext();
-  else if(step.await==='selReversed' && trigger==='sel'
-     && selectedCards().some(c=>c.orient==='reversed')) tutNext();
+  if(step.await==='sel' && trigger==='sel' && G.sel.length>0) tutNext();
   else if(step.await==='play' && trigger==='play') tutNext();
 }
 
 /* =========================================================
-   四、渲染
+   五、渲染
    ========================================================= */
 function pipGrid(n){
   const map={0:[],1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
@@ -625,67 +709,127 @@ function pipGrid(n){
   for(let i=0;i<9;i++) h+=`<div class="pip ${on.has(i)?'':'off'}"></div>`;
   return h+'</div>';
 }
+
+/* 把卡的当前效果数值渲染成一行简明描述 */
+function effectDesc(card){
+  const cfg = CFG.cards[card.id];
+  if(!cfg) return '?';
+  const upright = card.orient==='upright';
+  const e = upright ? cfg.up : cfg.rev;
+  const lines = [];
+  if(e.axisDelta != null){
+    lines.push(`任意轴 ${e.axisDelta>0?'+':''}${e.axisDelta}`);
+    if(e.executeThreshold != null) lines.push(`敌&lt;${Math.round(e.executeThreshold*100)}%→重伤+${Math.round(e.executeBonus*100)}%`);
+  }
+  if(e.damage != null) lines.push(`⚔ ${e.damage} 伤害`);
+  if(e.shield != null) lines.push(`🛡 数轴盾 ${e.shield}`);
+  if(e.cancelEnemyNext) lines.push('取消敌方下次');
+  if(e.immuneDebuff) lines.push('免疫下次 debuff');
+  if(e.enemyShield != null) lines.push(`敌方 +${e.enemyShield} 护盾`);
+  if(e.resetToInitial) lines.push(`数轴归 ±${CFG.initialAxis}（最终）`);
+  if(e.swapAxes) lines.push('正负轴对调');
+  if(e.doubleEffect) lines.push(`下回合数字+${e.nextTurnBonus||1}、效果×2`);
+  return lines.join('<br>') || '—';
+}
+
 function renderDomino(card){
-  const up=card.orient==='upright';
+  const up = card.orient==='upright';
+  const meta = CARD_BY_ID[card.id] || {name:card.id};
   const topN = up?card.a:card.b;
   const botN = up?card.b:card.a;
   const faceStr = up ? `(+${card.a}, −${card.b})` : `(−${card.b}, +${card.a})`;
-  const selPos=G.sel.indexOf(card.uid);
-  const cls='domino'+(selPos>=0?' sel':'');
+  const selPos = G.sel.indexOf(card.uid);
+  const cls = 'domino' + (selPos>=0?' sel':'');
   return `<div class="${cls}" data-uid="${card.uid}">
+    <div class="cardCorner">${meta.name.split(' · ')[0]}</div>
     ${selPos>=0?`<div class="selOrder">${selPos+1}</div>`:''}
     <div class="dHalf top">${pipGrid(topN)}</div>
     <div class="dHalf">${pipGrid(botN)}</div>
-    <div class="dBadge ${up?'up':'rev'}">${up?'正位 · 进攻':'倒位 · 回稳+盾'}</div>
-    <div class="dFace">${faceStr}<br>强度 ${power(card)}</div>
+    <div class="dBadge ${up?'up':'rev'}">${up?'正位':'倒位'} · ${faceStr}</div>
+    <div class="dEffect"><span class="dKind">${meta.type}</span>${effectDesc(card)}</div>
+  </div>`;
+}
+
+/* 单条数轴：传入数值（0-9）+ 预览数值 */
+function renderAxisRow(sign, value, ghost){
+  const pct = Math.max(0, Math.min(100, value/9*100));
+  const gPct = ghost!=null ? Math.max(0, Math.min(100, ghost/9*100)) : null;
+  let ticks = '';
+  for(let i=0;i<=9;i++){
+    const x = i/9*100;
+    const cls = i===0||i===9?'major':(i>=8?'danger':'');
+    ticks += `<div class="t ${cls}" style="left:${x}%"></div>`;
+    if(i%3===0 || i>=8) ticks += `<div class="lbl" style="left:${x}%">${i}</div>`;
+  }
+  let ghostHtml = '';
+  if(gPct!=null && Math.abs(gPct-pct)>0.5){
+    const left = Math.min(pct,gPct), w = Math.abs(gPct-pct);
+    ghostHtml = `<div class="ghostFill" style="left:${left}%;width:${w}%"></div>`;
+  }
+  const sh = G.shields[sign] || 0;
+  const shieldChip = sh>0 ? `<span class="shieldChip">🛡${sh}</span>` : '';
+  const dlt = ghost!=null && ghost!==value
+    ? `<span class="delta ${ghost>value?'up':'dn'}">→ ${ghost}</span>` : '';
+  return `<div class="axisRow ${sign}">
+    <div class="label">${sign==='pos'?'正轴':'负轴'}</div>
+    ${shieldChip}
+    <div class="track">
+      <div class="tickG">${ticks}</div>
+      <div class="fill" style="width:${pct}%"></div>
+      ${ghostHtml}
+    </div>
+    <div class="value">${value}${dlt}</div>
   </div>`;
 }
 function renderAxis(preview){
-  const el=$('axis');
-  const W=el.clientWidth||760;
-  const xOf=v=>((v+9)/18)*W;
-  let h='<div class="axisLine"></div>';
-  for(let v=-9;v<=9;v++){
-    const x=xOf(v);
-    const danger=Math.abs(v)>=8, zero=v===0;
-    h+=`<div class="tick ${zero?'zero':''} ${danger?'danger':''}" style="left:${x}px"></div>`;
-    if(v%3===0||danger)
-      h+=`<div class="ticklabel ${zero?'zero':''}" style="left:${x}px">${v>0?'+'+v:v}</div>`;
-  }
-  h+=`<div class="marker neg" style="left:${xOf(-G.neg)}px">−${G.neg}</div>`;
-  h+=`<div class="marker pos" style="left:${xOf(G.pos)}px">+${G.pos}</div>`;
-  if(preview){
-    h+=`<div class="marker neg ghost2" style="left:${xOf(-preview.neg)}px">−${preview.neg}</div>`;
-    h+=`<div class="marker pos ghost2" style="left:${xOf(preview.pos)}px">+${preview.pos}</div>`;
-  }
-  el.innerHTML=h;
+  const el = $('axis');
+  el.innerHTML =
+    renderAxisRow('pos', G.pos, preview ? Math.min(preview.pos,9) : null) +
+    renderAxisRow('neg', G.neg, preview ? Math.min(preview.neg,9) : null);
 }
+
 function render(preview){
-  const e=G.enemy;
-  $('eHpFill').style.width=Math.max(0,G.eHp/G.eHpMax*100)+'%';
-  $('eHpText').textContent=`${Math.max(0,G.eHp)} / ${G.eHpMax}`;
-  $('eIntent').textContent='⚔ 敌方意图：'+e.intentText(G)
-    +(G.cycle>0?`（轮次压力额外 +${G.cycle}）`:'');
-  $('bTurn').textContent='回合 '+G.turn;
-  $('axisState').textContent=`正轴 +${G.pos} ｜ 负轴 −${G.neg}`;
+  const e = G.enemy;
+  $('eHpFill').style.width = Math.max(0, G.eHp/G.eHpMax*100) + '%';
+  $('eHpText').textContent = `${Math.max(0,G.eHp)} / ${G.eHpMax}`;
+  $('eShield').innerHTML = G.eShield>0 ? ` <span class="eShieldBadge">护盾 ${G.eShield}</span>` : '';
+  $('eIntent').textContent = '⚔ 敌方意图：' + intentText() + (G.cycle>0?`（轮次压力额外 +${G.cycle}）`:'');
+  $('bTurn').textContent = '回合 ' + G.turn;
+  $('axisState').textContent = `正轴 +${G.pos} ｜ 负轴 −${G.neg}`;
   renderAxis(preview);
-  $('statusBar').innerHTML=
-    `🛡 护盾 <b>×${G.shield}</b>（挡掉敌方行动）`
-    +`　🔄 牌组轮次 <b>${G.cycle}</b>`
-    +`　🃏 抽牌堆剩 <b>${G.deck.length}</b>`;
-  const handEl=$('hand');
-  handEl.innerHTML=G.hand.map(renderDomino).join('');
+  const debuffStr = G.debuffNextTurn ? ' · ⚠ <b>下回合数轴变化+1</b>' : '';
+  const bonusStr = G.nextTurnFeeBonus>0 || G.nextTurnEffectDouble
+    ? ` · ✨ <b>00 加成生效中</b>` : '';
+  $('statusBar').innerHTML =
+    `🔄 牌组轮次 <b>${G.cycle}</b>`
+    + `　🃏 抽牌堆 <b>${G.deck.length}</b>` + `　弃牌堆 <b>${G.discard.length}</b>`
+    + debuffStr + bonusStr;
+  const handEl = $('hand');
+  handEl.innerHTML = G.hand.map(renderDomino).join('');
   handEl.querySelectorAll('.domino').forEach(d=>{
-    d.onclick=()=>toggleSel(d.dataset.uid);
+    d.onclick = () => toggleSel(d.dataset.uid);
   });
-  $('handTitle').textContent=`手牌（本回合剩 ${G.hand.length} 张 · 点击选择，最多 2 张）`;
+  $('handTitle').textContent = `手牌（本回合剩 ${G.hand.length} 张 · 点击选择，最多 2 张）`;
   $('btnPlay').disabled = G.sel.length===0 || G.over;
-  $('btnSkill').disabled = !((G.pos>=8||G.neg>=8) && !G.skillUsed) || G.over;
+  $('btnSkill').disabled = !((G.pos>=CFG.skillUnlockAt||G.neg>=CFG.skillUnlockAt) && !G.skillUsed) || G.over;
   $('btnSkip').disabled = G.over;
 }
 
+/* 敌方下次行动描述 */
+function intentText(){
+  if(!G.enemy.pattern || G.enemy.pattern.length===0) return '它静静站着，不会行动。';
+  const step = G.enemy.pattern[G.enemyPatternIdx % G.enemy.pattern.length];
+  if(step.type==='atk'){
+    const v = step.value + G.enemyAtkBonus + G.cycle*CFG.cyclePressure;
+    return `下回合：随机一侧 +${v}` + (G.enemyAtkBonus?`（含强化 ${G.enemyAtkBonus}）`:'');
+  }
+  if(step.type==='skill') return '下回合：施加技能 —— 你下回合的数轴变化值 +1（限一回合）';
+  if(step.type==='buff') return '下回合：自我强化（后续攻击 +1）';
+  return '?';
+}
+
 /* =========================================================
-   五、选牌与预览
+   六、选牌与预览
    ========================================================= */
 function selectedCards(){
   return G.sel.map(uid=>G.hand.find(c=>c.uid===uid)).filter(Boolean);
@@ -700,166 +844,306 @@ function toggleSel(uid){
   tutCheck('sel');
 }
 function showPreview(){
-  const cards=selectedCards();
-  const box=$('preview');
+  const cards = selectedCards();
+  const box = $('preview');
   if(cards.length===0){
-    box.innerHTML='<span class="ph">从下方手牌中选择 1~2 张，这里会分两层一步步演算给你看。</span>';
+    box.innerHTML = '<span class="ph">从下方手牌中选择 1~2 张，这里会分两层一步步演算给你看。</span>';
     renderAxis(null);
     return;
   }
-  const sim=simulatePlay(cards);
-  let h='';
-  h+=`<div class="pvHead">${cards.length===1?'打出单牌':'打出双牌'}　·　出牌前数轴：正 ${sim.before.pos} ／ 负 ${sim.before.neg}</div>`;
-  h+='<div class="pvSec"><div class="pvSecT">① 数字结算 —— 牌上的数字推动数轴</div>';
-  h+=`<div class="pvNote">${sim.mainNote}</div>`;
-  sim.numSteps.forEach(s=>{ h+=`<div class="pvLine">${s}</div>`; });
-  sim.pierceSteps.forEach(s=>{ h+=`<div class="pvPierce">⚡ 贯穿：${s}</div>`; });
-  h+='</div>';
-  if(sim.effectSteps.length||sim.comboNote){
-    h+='<div class="pvSec"><div class="pvSecT">② 牌面效果 —— 正位伤敌 ／ 倒位回稳+护盾</div>';
-    sim.effectSteps.forEach(s=>{ h+=`<div class="pvLine">${s}</div>`; });
-    if(sim.comboNote) h+=`<div class="pvCombo">★ ${sim.comboNote}</div>`;
-    h+='</div>';
+  const sim = simulatePlay(cards);
+  let h = '';
+  h += `<div class="pvHead">${cards.length===1?'打出单牌':'打出双牌'}　·　出牌前数轴：正 +${sim.before.pos} ／ 负 −${sim.before.neg}</div>`;
+  h += '<div class="pvSec"><div class="pvSecT">① 数字结算 —— 牌上的数字推动数轴</div>';
+  h += `<div class="pvNote">${sim.mainNote}</div>`;
+  sim.numSteps.forEach(s=>{ h += `<div class="pvLine">${s}</div>`; });
+  sim.pierceSteps.forEach(s=>{ h += `<div class="pvPierce">⚡ 贯穿：${s}</div>`; });
+  h += '</div>';
+  if(sim.effectSteps.length || sim.comboNote){
+    h += '<div class="pvSec"><div class="pvSecT">② 卡面效果 —— 每张卡的正/倒位独立效果</div>';
+    sim.effectSteps.forEach(s=>{ h += `<div class="pvEffect">${s}</div>`; });
+    if(sim.comboNote) h += `<div class="pvCombo">★ ${sim.comboNote}</div>`;
+    h += '</div>';
   }
-  h+='<div class="pvResult">';
-  h+=`<div class="pvAxis"><b>预计数轴</b>　<span class="tagPos">正轴 ${sim.before.pos} → ${sim.pos}</span>　<span class="tagNeg">负轴 ${sim.before.neg} → ${sim.neg}</span></div>`;
-  if(sim.dmg>0) h+=`<div class="pvDmg">⚔ 对敌方造成 ${sim.dmg} 点伤害</div>`;
-  h+=`<div class="pvSum ${sim.summary.cls}">${sim.summary.txt}</div>`;
-  h+='</div>';
-  box.innerHTML=h;
-  renderAxis({pos:Math.min(sim.pos,9),neg:Math.min(sim.neg,9)});
+  h += '<div class="pvResult">';
+  h += `<div class="pvAxis"><b>预计数轴</b>　<span class="tagPos">正轴 +${sim.before.pos} → +${sim.pos}</span>　<span class="tagNeg">负轴 −${sim.before.neg} → −${sim.neg}</span></div>`;
+  if(sim.dmg>0) h += `<div class="pvDmg">⚔ 对敌方造成 ${sim.dmg} 点伤害${sim.dmgNote?`（${sim.dmgNote}）`:''}</div>`;
+  h += `<div class="pvSum ${sim.summary.cls}">${sim.summary.txt}</div>`;
+  h += '</div>';
+  box.innerHTML = h;
+  renderAxis({pos:Math.min(sim.pos,9), neg:Math.min(sim.neg,9)});
 }
 
 /* =========================================================
-   六、出牌结算
+   七、卡面效果系统 —— 10 张卡的 specific 行为
+   ========================================================= */
+function applyShield(sim, axis, amount){
+  // 套盾：累加到 sim.shieldsDelta[axis]
+  sim.shieldsDelta[axis] = (sim.shieldsDelta[axis]||0) + amount;
+}
+
+function applyCardEffect(card, sim){
+  const cfg = CFG.cards[card.id];
+  if(!cfg) return;
+  const e = card.orient==='upright' ? cfg.up : cfg.rev;
+  const mult = G.nextTurnEffectDouble ? 2 : 1;
+  const label = `${CARD_BY_ID[card.id].name}（${card.orient==='upright'?'正位':'倒位'}）`;
+
+  // 1. 任意数轴 ±N：启发式选择
+  if(e.axisDelta != null){
+    const delta = e.axisDelta * mult;
+    let axis;
+    if(delta > 0){
+      // + 是把数轴推向 9 —— 加到较低那侧（更安全）
+      axis = sim.pos <= sim.neg ? 'pos' : 'neg';
+    } else {
+      // − 是把数轴拉向 0 —— 减较高那侧（更危险的清理）
+      axis = sim.pos >= sim.neg ? 'pos' : 'neg';
+    }
+    const before = sim[axis];
+    let after = before + delta;
+    if(after < 0) after = 0;        // 卡面效果不再触发贯穿
+    if(after > 9) after = 9;
+    sim[axis] = after;
+    sim.effectSteps.push(`${label}：${axis==='pos'?'正轴':'负轴'} ${before} ${delta>=0?'+':'−'} ${Math.abs(delta)} = ${after}`);
+  }
+
+  // 2. 伤害
+  if(e.damage != null){
+    const base = e.damage * mult;
+    sim.rawDmgList.push(base);
+    sim.effectSteps.push(`${label}：造成 ${base} 点伤害（基础${e.damage}${mult>1?` ×${mult}`:''}）`);
+  }
+
+  // 3. 套盾（数轴护盾）
+  if(e.shield != null){
+    const amt = e.shield * mult;
+    // 启发式：给较危险（数值较高）的一侧
+    const axis = sim.pos >= sim.neg ? 'pos' : 'neg';
+    applyShield(sim, axis, amt);
+    sim.effectSteps.push(`${label}：${axis==='pos'?'正轴':'负轴'} +${amt} 点护盾（下回合开始清空）`);
+  }
+
+  // 4. 取消敌方下次行动
+  if(e.cancelEnemyNext){
+    sim.cancelEnemyNext = true;
+    sim.effectSteps.push(`${label}：使敌方下次行动消失（条件性效果直接被抵消）`);
+  }
+
+  // 5. 免疫 debuff
+  if(e.immuneDebuff){
+    sim.immuneNextDebuff = true;
+    sim.effectSteps.push(`${label}：免疫敌方下次 debuff`);
+  }
+
+  // 6. 给敌方护盾（坏效果）
+  if(e.enemyShield != null){
+    sim.enemyShieldDelta += e.enemyShield * mult;
+    sim.effectSteps.push(`${label}：⚠ 为敌方增加 ${e.enemyShield} 护盾`);
+  }
+
+  // 7. 重伤累加判定（24 正）
+  if(e.executeThreshold != null && e.executeBonus != null){
+    const ratio = G.eHp / G.eHpMax;
+    if(ratio < e.executeThreshold){
+      sim.executeAdd += 1;
+      sim.effectSteps.push(`${label}：敌方 HP &lt; ${Math.round(e.executeThreshold*100)}% → 施加重伤（本场 +${Math.round(e.executeBonus*100)}% 伤害，可累加）`);
+    }
+  }
+
+  // 8. 33 正：回到初始（最终结算 —— 优先级最高）
+  if(e.resetToInitial){
+    sim.pos = CFG.initialAxis;
+    sim.neg = CFG.initialAxis;
+    sim.effectSteps.push(`${label}：数轴回到初始 ±${CFG.initialAxis}（最终结算，覆盖之前所有变化）`);
+    sim.finalOverride = true;
+  }
+
+  // 9. 33 倒：正负轴数字对调
+  if(e.swapAxes){
+    [sim.pos, sim.neg] = [sim.neg, sim.pos];
+    sim.effectSteps.push(`${label}：正负轴数字对调 → 正 +${sim.pos} ／ 负 −${sim.neg}`);
+  }
+
+  // 10. 00：下一轮 buff
+  if(e.doubleEffect){
+    sim.nextTurnBuffActivate = true;
+    sim.nextTurnFeeBonus = e.nextTurnBonus || 1;
+    sim.effectSteps.push(`${label}：下一轮所有牌效果数值翻倍，且数轴变化额外 +${e.nextTurnBonus||1}（可续杯）`);
+  }
+}
+
+/* =========================================================
+   八、出牌结算（模拟与执行）
    ========================================================= */
 function simulatePlay(cards){
-  let pos=G.pos, neg=G.neg, dmg=0, heal=0;
-  const before={pos:G.pos,neg:G.neg};
-  const single=cards.length===1;
+  const before = {pos:G.pos, neg:G.neg};
+  const single = cards.length===1;
 
-  const calc = single ? calcSingle(pos,neg,cards[0]) : calcDouble(pos,neg,cards[0],cards[1]);
-  pos=calc.pos; neg=calc.neg;
+  // ① 数字结算
+  const calc = single
+    ? calcSingle(G.pos, G.neg, cards[0])
+    : calcDouble(G.pos, G.neg, cards[0], cards[1]);
+  let pos = calc.pos, neg = calc.neg;
 
-  let combo=null;
+  // 00 buff 的「数轴变化 +1」加成（额外推到较高一侧 —— 这是 cost）
+  const feeBonus = G.nextTurnFeeBonus;
+  const feeNote = [];
+  if(feeBonus > 0){
+    const dp = pos - before.pos, dn = neg - before.neg;
+    if(dp > 0){ pos += feeBonus; feeNote.push(`00 加成：正轴额外 +${feeBonus}（${dp}→${dp+feeBonus}）`); }
+    if(dn > 0){ neg += feeBonus; feeNote.push(`00 加成：负轴额外 +${feeBonus}`); }
+  }
+
+  // 模拟器状态
+  const sim = {
+    pos, neg, before,
+    rawDmgList: [], enemyShieldDelta: 0,
+    executeAdd: 0,
+    cancelEnemyNext: false, immuneNextDebuff: false,
+    shieldsDelta: {pos:0, neg:0},
+    nextTurnBuffActivate: false, nextTurnFeeBonus: 0,
+    finalOverride: false,
+    mainNote: calc.mainNote,
+    numSteps: calc.num.concat(feeNote),
+    pierceSteps: calc.pierce,
+    effectSteps: [],
+    comboNote: null,
+    dmg: 0, dmgNote: '',
+  };
+
+  // ② 卡面效果（逐张）
+  cards.forEach(c => applyCardEffect(c, sim));
+
+  // ③ 连击
+  let combo = null;
   if(cards.length===2){
-    const cn=comboNumber(cards[0],cards[1]);
-    if(cn!==null) combo=COMBO[cn];
-  }
-
-  // ② 牌面效果：正位进攻（单卡收益下调）/ 倒位回稳
-  const effect=[];
-  cards.forEach((c,i)=>{
-    const label = cards.length>1 ? `牌${i+1} ` : '';
-    if(c.orient==='upright'){
-      if(single){
-        const d=Math.max(1,Math.ceil(power(c)*CFG.singleDmgRatio));
-        dmg+=d;
-        effect.push(`${label}正位进攻（单卡·收益下调）：${d} 点伤害（双卡满额 ${power(c)}）`);
-      } else {
-        dmg+=power(c);
-        effect.push(`${label}正位进攻：对敌方造成 ${power(c)} 点伤害`);
+    const cn = comboNumber(cards[0], cards[1]);
+    if(cn !== null){
+      combo = COMBO[cn];
+      sim.comboNote = `连击触发！两张牌首位都是 ${cn} → 「${combo.name}」：${combo.desc}`;
+      if(combo.n===1) sim.rawDmgList.push(8);
+      if(combo.n===6) sim.rawDmgList.push(12);
+      if(combo.n===3){
+        sim.rawDmgList.push(6);
+        if(sim.pos>=sim.neg) sim.pos=Math.max(0, sim.pos-3); else sim.neg=Math.max(0, sim.neg-3);
       }
-    } else {
-      heal+=power(c);
-      effect.push(`${label}倒位回稳：可把数轴向 0 拉回 ${power(c)}，并 +1 护盾`);
+      if(combo.n===2){
+        sim.pos = Math.max(0, sim.pos-2);
+        sim.neg = Math.max(0, sim.neg-2);
+      }
+      if(combo.n===4){
+        sim.pos = before.pos; sim.neg = before.neg;
+      }
+      if(combo.n===5){
+        sim.cancelEnemyNext = true;  // 让敌方下次行动免除
+      }
+      // combo 0 在 doPlay 处理（要清手牌）
     }
-  });
-
-  // 回稳分配
-  if(heal>0){
-    let remain=heal;
-    const lockNeg=G.enemy&&G.enemy.lockNeg;
-    while(remain>0){
-      const canNeg=neg>0&&!lockNeg, canPos=pos>0;
-      if(!canNeg&&!canPos) break;
-      const side=(canPos&&canNeg)?(pos>=neg?'pos':'neg'):(canPos?'pos':'neg');
-      if(side==='pos')pos--; else neg--;
-      remain--;
-    }
-    const used=heal-remain;
-    effect.push(used>0
-      ? `回稳实际生效：数轴向 0 拉回 ${used}${remain>0?`（剩 ${remain} 点无处可用）`:''}`
-      : '回稳无处可用：数轴已贴近 0');
-    if(lockNeg) effect.push('（拾骨者锁定负轴，回稳只能作用于正轴）');
   }
 
-  // 护盾增益
-  const revCount=cards.filter(c=>c.orient==='reversed').length;
-  const shieldGain=Math.min(revCount, CFG.shieldMax-G.shield);
-  if(shieldGain>0) effect.push(`获得 ${shieldGain} 层护盾（上限 ${CFG.shieldMax}，当前 ${G.shield}）`);
-
-  // 连击附加
-  let comboNote=null;
-  if(combo){
-    comboNote=`连击触发！两张牌首位都是 ${combo.n} → 「${combo.name}」：${combo.desc}`;
-    if(combo.n===1) dmg+=8;
-    if(combo.n===6) dmg+=12;
-    if(combo.n===3){ dmg+=6; if(pos>=neg)pos=Math.max(0,pos-3); else neg=Math.max(0,neg-3); }
-    if(combo.n===2){ pos=Math.max(0,pos-2); neg=Math.max(0,neg-2); }
-    if(combo.n===4){ pos=before.pos; neg=before.neg; }
+  // ④ 重新判定贯穿（卡面效果改了数轴，需再 resolve）
+  if(!sim.finalOverride){
+    const r = resolvePierce(sim.pos, sim.neg);
+    sim.pos = r.pos; sim.neg = r.neg;
+    r.pierce.forEach(p => sim.pierceSteps.push(p));
   }
 
-  const dp=pos-before.pos, dn=neg-before.neg;
-  const moveTxt=(dp===0&&dn===0)?'数轴几乎不动'
-    :`数轴变化：正轴 ${dp>=0?'+':''}${dp}，负轴 ${dn>=0?'+':''}${dn}`;
+  // ⑤ 伤害汇总（应用重伤倍率 + 敌方护盾）
+  let totalDmg = sim.rawDmgList.reduce((a,b)=>a+b, 0);
+  const execNow = G.executeStacks + sim.executeAdd;
+  if(execNow > 0 && totalDmg > 0){
+    const m = 1 + 0.1 * execNow;
+    const boosted = Math.round(totalDmg * m);
+    sim.dmgNote = `重伤 ×${(1+0.1*execNow).toFixed(1)}：${totalDmg}→${boosted}`;
+    totalDmg = boosted;
+  }
+  // 敌方护盾抵扣
+  if(G.eShield > 0 && totalDmg > 0){
+    const blocked = Math.min(G.eShield, totalDmg);
+    totalDmg -= blocked;
+    sim.dmgNote = (sim.dmgNote?sim.dmgNote+'；':'') + `敌方护盾抵扣 ${blocked}`;
+  }
+  sim.dmg = totalDmg;
+
+  // ⑥ 总结
+  const dp = sim.pos - before.pos, dn = sim.neg - before.neg;
+  const moveTxt = (dp===0 && dn===0)
+    ? '数轴几乎不动'
+    : `数轴变化：正 ${dp>=0?'+':''}${dp}，负 ${dn>=0?'+':''}${dn}`;
   let summary;
-  if(pos>=9||neg>=9){
-    summary={cls:'bad',txt:'⚠ 这一手会让数轴触顶 ±9 —— 直接失败，换一手！'};
+  if(sim.pos>=9 || sim.neg>=9){
+    summary = {cls:'bad', txt:'⚠ 这一手会让数轴触顶 9 —— 直接失败，换一手！'};
   } else {
-    const danger=Math.max(pos,neg);
-    if(danger>=7) summary={cls:'warn',txt:`${moveTxt}。数轴已逼近危险区（${danger}/9），下一步要留余地。`};
-    else if(danger<=3) summary={cls:'ok',txt:`${moveTxt}。数轴仍在安全区，可放心出。`};
-    else summary={cls:'',txt:`${moveTxt}。数轴尚算稳定。`};
+    const danger = Math.max(sim.pos, sim.neg);
+    if(danger>=7) summary = {cls:'warn', txt:`${moveTxt}。数轴逼近危险区（${danger}/9）。`};
+    else if(danger<=3) summary = {cls:'ok', txt:`${moveTxt}。数轴仍在安全区，可放心出。`};
+    else summary = {cls:'', txt:`${moveTxt}。数轴尚算稳定。`};
   }
+  sim.summary = summary;
 
-  return {pos,neg,dmg,combo,before,shieldGain,
-    mainNote:calc.mainNote, numSteps:calc.num, pierceSteps:calc.pierce,
-    effectSteps:effect, comboNote, summary};
+  return sim;
 }
 
 function doPlay(){
-  if(G.over||G.sel.length===0) return;
-  const cards=selectedCards();
-  const sim=simulatePlay(cards);
-  G.pos=sim.pos; G.neg=sim.neg;
+  if(G.over || G.sel.length===0) return;
+  const cards = selectedCards();
+  const sim = simulatePlay(cards);
 
-  if(G.enemy.id==='ascetic'){
-    let tax=0;
-    cards.forEach(c=>{ if(hasBigPip(c)) tax+=CFG.enemies.ascetic.heal; });
-    if(tax>0){ G.eHp+=tax; log(`苦行僧因你打出大数字而回复 ${tax} 点血量`,'bad'); }
+  // 应用数轴
+  G.pos = sim.pos; G.neg = sim.neg;
+
+  // 应用伤害
+  if(sim.dmg > 0){
+    G.eHp -= sim.dmg;
+    log(`你出牌造成 <span class="dmg">${sim.dmg}</span> 点伤害${sim.dmgNote?`（${sim.dmgNote}）`:''}`);
   }
 
-  let dmg=sim.dmg;
-  if(dmg>0){
-    if(G.enemy.id==='zealot' && G.pos<6 && G.neg<6){
-      const half=Math.floor(dmg/2);
-      log(`狂热护盾生效：伤害 ${dmg} 减半为 ${half}`,'bad');
-      dmg=half;
+  // 应用敌方护盾增减
+  if(sim.enemyShieldDelta !== 0){
+    G.eShield = Math.max(0, G.eShield + sim.enemyShieldDelta);
+    log(`敌方护盾变化 ${sim.enemyShieldDelta>0?'+':''}${sim.enemyShieldDelta}（当前 ${G.eShield}）`, sim.enemyShieldDelta>0?'bad':'good');
+  }
+  // 重伤累加
+  if(sim.executeAdd > 0){
+    G.executeStacks += sim.executeAdd;
+    log(`重伤层数 +${sim.executeAdd}（当前 ${G.executeStacks} 层，每层 +10%）`, 'good');
+  }
+  // 护盾应用
+  for(const ax of ['pos','neg']){
+    if(sim.shieldsDelta[ax] > 0){
+      G.shields[ax] += sim.shieldsDelta[ax];
+      log(`${ax==='pos'?'正轴':'负轴'} 获得 ${sim.shieldsDelta[ax]} 点护盾（当前 ${G.shields[ax]}）`,'good');
     }
-    G.eHp-=dmg;
-    log(`你出牌造成 <span class="dmg">${dmg}</span> 点伤害`);
   }
-  if(sim.shieldGain>0){
-    G.shield=Math.min(CFG.shieldMax,G.shield+sim.shieldGain);
-    log(`获得 ${sim.shieldGain} 层护盾（当前 ${G.shield}）`,'good');
-  }
-  if(sim.combo){
-    log(`连击「${sim.combo.name}」：${sim.combo.desc}`,'good');
-    if(sim.combo.n===5) G.skipEnemyOnce=true;
+  // 状态 flag
+  if(sim.cancelEnemyNext){ G.cancelEnemyNext = true; log('敌方下次行动将被取消','good'); }
+  if(sim.immuneNextDebuff){ G.immuneNextDebuff = true; log('已对下次 debuff 免疫','good'); }
+  // 00 下回合 buff
+  if(sim.nextTurnBuffActivate){
+    G.nextTurnEffectDouble = true;
+    G.nextTurnFeeBonus = sim.nextTurnFeeBonus;
+    log(`下一回合效果翻倍 · 数轴额外 +${sim.nextTurnFeeBonus}（可续杯）`,'good');
   }
 
-  cards.forEach(c=>{
-    const i=G.hand.findIndex(h=>h.uid===c.uid);
-    if(i>=0){ G.discard.push(G.hand[i]); G.hand.splice(i,1); }
-  });
-  if(sim.combo&&sim.combo.n===0){
-    G.discard.push(...G.hand); G.hand=[];
-    refillHand();
-    log('「奇点·循环」：弃掉手牌并重抽 5 张','good');
+  // 连击
+  if(sim.comboNote){
+    log(sim.comboNote.replace('连击触发！',''), 'good');
   }
-  G.sel=[];
-  log(`数轴 → 正轴 +${G.pos}｜负轴 −${G.neg}`);
+
+  // 弃掉打出的牌
+  cards.forEach(c => {
+    const i = G.hand.findIndex(h => h.uid === c.uid);
+    if(i>=0){ G.discard.push(G.hand[i]); G.hand.splice(i, 1); }
+  });
+  // combo 0：弃掉所有手牌并重抽
+  if(cards.length===2 && comboNumber(cards[0], cards[1]) === 0){
+    G.discard.push(...G.hand); G.hand = [];
+    refillHand();
+    log('「奇点·循环」：弃掉手牌并重抽 5 张', 'good');
+  }
+  G.sel = [];
+  log(`数轴 → 正轴 +${G.pos} ｜ 负轴 −${G.neg}`);
   tutCheck('play');
 
   if(checkEnd()) return;
@@ -870,232 +1154,330 @@ function doPlay(){
 /* ---- 结束回合 ---- */
 function endTurn(){
   if(G.over) return;
-  G.sel=[];
+  G.sel = [];
   enemyTurn();
 }
+
 function enemyTurn(){
-  if(G.shield>0){
-    G.shield--;
-    log(`护盾抵消了敌方本回合的行动（剩余护盾 ${G.shield}）`,'good');
-  } else if(G.skipEnemyOnce){
-    G.skipEnemyOnce=false;
-    log('「精神·规律」：敌方本回合行动被免除','good');
-  } else {
-    const msg=G.enemy.push(G);
-    if(msg===null){
-      log('教学木偶静静站着，没有行动。','');
-    } else {
-      log(`敌方行动：${msg}`,'dmg');
-      if(G.cycle>0 && CFG.cyclePressure>0){
-        const cp=G.cycle*CFG.cyclePressure;
-        if(G.pos>=G.neg) G.pos+=cp; else G.neg+=cp;
-        log(`轮次压力 Lv.${G.cycle}：较大一侧额外 +${cp}`,'bad');
+  if(G.cancelEnemyNext){
+    G.cancelEnemyNext = false;
+    log('「取消敌方下次行动」生效，敌方本回合行动被消除','good');
+    G.enemyPatternIdx++;
+  } else if(G.enemy.pattern && G.enemy.pattern.length>0){
+    const step = G.enemy.pattern[G.enemyPatternIdx % G.enemy.pattern.length];
+    G.enemyPatternIdx++;
+    if(step.type === 'atk'){
+      let v = step.value + G.enemyAtkBonus + G.cycle*CFG.cyclePressure;
+      // debuff: 上回合敌方施加了「数轴变化 +1」
+      if(G.debuffNextTurn){
+        if(G.immuneNextDebuff){
+          G.immuneNextDebuff = false;
+          log('debuff 被免疫，本回合数轴变化不额外 +1','good');
+        } else {
+          v += 1;
+          log('上回合敌方技能生效：本次数轴变化 +1','bad');
+        }
+        G.debuffNextTurn = false;
       }
-      const r=resolvePierce(G.pos,G.neg);
-      G.pos=r.pos; G.neg=r.neg;
-      r.pierce.forEach(s=>log('⚡ '+s,'bad'));
-      log(`数轴 → 正轴 +${G.pos}｜负轴 −${G.neg}`);
+      const axis = Math.random() < 0.5 ? 'pos' : 'neg';
+      // 数轴护盾抵扣
+      let actual = v;
+      if(G.shields[axis] > 0){
+        const blocked = Math.min(G.shields[axis], v);
+        actual = v - blocked;
+        G.shields[axis] -= blocked;
+        log(`${axis==='pos'?'正轴':'负轴'} 护盾抵扣 ${blocked}（剩 ${G.shields[axis]}）`,'good');
+      }
+      if(actual > 0){
+        if(axis==='pos') G.pos += actual; else G.neg += actual;
+      }
+      log(`敌方攻击：${axis==='pos'?'正轴':'负轴'} +${v}${actual!==v?`（实际 +${actual}）`:''}`, 'dmg');
+      // 贯穿
+      const r = resolvePierce(G.pos, G.neg);
+      G.pos = r.pos; G.neg = r.neg;
+      r.pierce.forEach(s => log('⚡ '+s, 'bad'));
+    } else if(step.type === 'skill'){
+      if(G.immuneNextDebuff){
+        G.immuneNextDebuff = false;
+        log('敌方施加技能，但被你免疫了','good');
+      } else {
+        G.debuffNextTurn = true;
+        log('敌方施加技能：你下一回合数轴变化 +1（限一回合）','bad');
+      }
+    } else if(step.type === 'buff'){
+      G.enemyAtkBonus += 1;
+      log(`敌方强化自身（后续攻击 +1，当前 +${G.enemyAtkBonus}）`,'bad');
     }
+  } else {
+    log('教学木偶静静站着，没有行动。','');
   }
+
   if(checkEnd()) return;
 
-  // 新回合：弃掉旧手牌，抽新的 5 张
+  // 新回合开始：清数轴护盾 + 00 buff 消耗 + 弃旧手牌抽新
+  G.shields.pos = 0; G.shields.neg = 0;
+  // 00 的 doubleEffect/feeBonus 在使用后清除
+  G.nextTurnEffectDouble = false;
+  G.nextTurnFeeBonus = 0;
+
   G.turn++;
-  G.discard.push(...G.hand); G.hand=[];
+  G.discard.push(...G.hand); G.hand = [];
   refillHand();
   log(`<span class="turn">— 回合 ${G.turn} —</span>`);
+  log(`数轴 → 正轴 +${G.pos} ｜ 负轴 −${G.neg}`);
   showPreview();
   render();
 }
 
 function doSkill(){
-  if(G.over||G.skillUsed) return;
-  if(!(G.pos>=8||G.neg>=8)) return;
-  G.skillUsed=true;
-  G.pos=CFG.skillResetTo; G.neg=CFG.skillResetTo;
+  if(G.over || G.skillUsed) return;
+  if(!(G.pos>=CFG.skillUnlockAt || G.neg>=CFG.skillUnlockAt)) return;
+  G.skillUsed = true;
+  G.pos = CFG.skillResetTo; G.neg = CFG.skillResetTo;
   log(`觉醒技「归元」：双轴强制归 ${CFG.skillResetTo}`,'good');
   showPreview();
   render();
 }
 
 function checkEnd(){
-  if(G.eHp<=0){ endGame(true,'敌方血量清空。'); return true; }
-  if(G.pos>=9){ endGame(false,'正数轴抵达 +9，数轴崩溃。'); return true; }
-  if(G.neg>=9){ endGame(false,'负数轴抵达 −9，数轴崩溃。'); return true; }
+  if(G.eHp <= 0){ endGame(true,'敌方血量清空。'); return true; }
+  if(G.pos >= 9){ endGame(false,'正数轴抵达 9，数轴崩溃。'); return true; }
+  if(G.neg >= 9){ endGame(false,'负数轴抵达 9，数轴崩溃。'); return true; }
   return false;
 }
-function endGame(win,reason){
-  G.over=true;
+function endGame(win, reason){
+  G.over = true;
   render();
-  $('ovTitle').textContent=win?'胜利':'失败';
-  $('ovTitle').style.color=win?'var(--ok)':'var(--danger)';
-  $('ovText').textContent=reason;
+  $('ovTitle').textContent = win?'胜利':'失败';
+  $('ovTitle').style.color = win?'var(--ok)':'var(--danger)';
+  $('ovText').textContent = reason;
   $('overlay').classList.remove('hidden');
   log(win?'<span class="good">★ 胜利 ★</span>':'<span class="bad">✗ 失败 ✗</span>');
 }
 
 /* =========================================================
-   七、日志
+   九、日志
    ========================================================= */
-function log(msg,cls){
-  const el=$('log');
+function log(msg, cls){
+  const el = $('log');
   if(!el) return;
-  const d=document.createElement('div');
-  d.className='e'+(cls?' '+cls:'');
-  d.innerHTML=msg;
+  const d = document.createElement('div');
+  d.className = 'e' + (cls?' '+cls:'');
+  d.innerHTML = msg;
   el.appendChild(d);
-  el.scrollTop=el.scrollHeight;
+  el.scrollTop = el.scrollHeight;
 }
-function logClear(){ $('log').innerHTML=''; }
+function logClear(){ $('log').innerHTML = ''; }
 
 /* =========================================================
-   八、校验工具（W系数 / S系数）
+   十、校验工具
    ========================================================= */
 function tierOf(w){ return w<=3?0 : w<=6?1 : w<=9?2 : 3; }
-const TIERNAME=['低','中','高','极高'];
+const TIERNAME = ['低','中','高','极高'];
 
 function buildTool(){
-  const deck=buildDeck();
-  // ① W系数表：按使用点数分组
-  const groups={};
-  deck.forEach(c=>{ const u=usePoints(c); (groups[u]=groups[u]||[]).push(c); });
-  let h='';
-  Object.keys(groups).sort((a,b)=>b-a).forEach(u=>{
-    h+=`<div class="wGroup"><div class="wGroupT">使用点数 ${u} —— 共 ${groups[u].length} 张</div><div class="wChips">`;
-    groups[u].forEach(c=>{
-      const w=power(c), t=tierOf(w);
-      h+=`<span class="wChip">${c.a}｜${c.b}　W<b>${w}</b>　<span class="t${t}">${TIERNAME[t]}</span></span>`;
-    });
-    h+='</div></div>';
+  // ① 10 张卡 · W 系数
+  let h = '<div class="wChips">';
+  CARDS.forEach(c => {
+    const w = c.a + c.b, t = tierOf(w);
+    h += `<span class="wChip">${c.name}　W<b>${w}</b>　<span class="t${t}">${TIERNAME[t]}</span></span>`;
   });
-  $('wTable').innerHTML=h;
+  h += '</div>';
+  $('wTable').innerHTML = h;
 
   // ② 双牌计算器
-  const opt=deck.map((c,i)=>`<option value="${i}">${c.a} ｜ ${c.b}</option>`).join('');
-  $('sc1').innerHTML=opt; $('sc2').innerHTML=opt;
-  $('sc1').value='27'; $('sc2').value='0';
-  ['sc1','sc2','sc1o','sc2o'].forEach(id=>$(id).onchange=toolCalc);
+  const opt = CARDS.map((c, i) => `<option value="${i}">${c.name}</option>`).join('');
+  $('sc1').innerHTML = opt; $('sc2').innerHTML = opt;
+  $('sc1').value = '0'; $('sc2').value = '1';
+  ['sc1','sc2','sc1o','sc2o'].forEach(id => $(id).onchange = toolCalc);
   toolCalc();
+
+  // ③ 调参
   buildTuner();
 }
 function toolCalc(){
-  const deck=buildDeck();
-  const c1=Object.assign({},deck[+$('sc1').value],{orient:$('sc1o').value==='正位'?'upright':'reversed'});
-  const c2=Object.assign({},deck[+$('sc2').value],{orient:$('sc2o').value==='正位'?'upright':'reversed'});
-  const f1=faceOf(c1), f2=faceOf(c2);
-  const r1=f1.first.val-f2.last.val, r2=f1.last.val-f2.first.val;
-  const W=c1.a+c1.b+c2.a+c2.b;
-  const mainIsPos=f1.first.sign>0;
-  const mainD=r1, secD=-r2;            // 主轴变化量、次轴变化量（不含贯穿）
-  const cn=comboNumber(c1,c2);
-  const t=tierOf(W>12?12:W);
-  let h='';
-  h+=`<div><span class="k">牌面：</span>牌1 ${$('sc1o').value} (${mainIsPos?'+':'−'}${f1.first.val},${mainIsPos?'−':'+'}${f1.last.val})　牌2 ${$('sc2o').value}</div>`;
-  h+=`<div><span class="k">W系数（资源量）：</span><b>${W}</b> / 24　·　梯级 <span class="t${tierOf(Math.min(W,12))}">${TIERNAME[tierOf(Math.min(W,12))]}</span></div>`;
-  h+=`<div><span class="k">交叉结果：</span>结果1 ＝ ${f1.first.val}−${f2.last.val} ＝ ${r1}　｜　结果2 ＝ ${f1.last.val}−${f2.first.val} ＝ ${r2}</div>`;
-  h+=`<div><span class="k">S系数（系统变化量）：</span>主轴(${mainIsPos?'正':'负'}) Δ＝<b>${mainD>=0?'+':''}${mainD}</b>　次轴 Δ＝<b>${secD>=0?'+':''}${secD}</b>　·　总偏移 ${Math.abs(mainD)+Math.abs(secD)}</div>`;
-  h+=`<div><span class="k">连击：</span>${cn!==null?`触发（首位同为 ${cn}）`:'不触发（首位数字不同）'}</div>`;
-  $('sOut').innerHTML=h;
+  const c1 = Object.assign({}, CARDS[+$('sc1').value], {orient:$('sc1o').value==='正位'?'upright':'reversed'});
+  const c2 = Object.assign({}, CARDS[+$('sc2').value], {orient:$('sc2o').value==='正位'?'upright':'reversed'});
+  const f1 = faceOf(c1), f2 = faceOf(c2);
+  const r1 = f1.first.val - f2.last.val, r2 = f1.last.val - f2.first.val;
+  const W = c1.a + c1.b + c2.a + c2.b;
+  const mainIsPos = f1.first.sign>0;
+  const mainD = r1, secD = -r2;
+  const cn = comboNumber(c1, c2);
+  let h = '';
+  h += `<div><span class="k">牌面：</span>${c1.name} ${$('sc1o').value} ${mainIsPos?'+':'−'}${f1.first.val},${mainIsPos?'−':'+'}${f1.last.val}　／　${c2.name} ${$('sc2o').value}</div>`;
+  h += `<div><span class="k">W 系数（资源量）：</span><b>${W}</b> / 24　·　梯级 <span class="t${tierOf(Math.min(W,12))}">${TIERNAME[tierOf(Math.min(W,12))]}</span></div>`;
+  h += `<div><span class="k">交叉结果：</span>结果1 ＝ ${f1.first.val}−${f2.last.val} ＝ ${r1}　｜　结果2 ＝ ${f1.last.val}−${f2.first.val} ＝ ${r2}</div>`;
+  h += `<div><span class="k">S 系数：</span>主轴(${mainIsPos?'正':'负'}) Δ＝<b>${mainD>=0?'+':''}${mainD}</b>　次轴 Δ＝<b>${secD>=0?'+':''}${secD}</b>　·　总偏移 ${Math.abs(mainD)+Math.abs(secD)}</div>`;
+  h += `<div><span class="k">连击：</span>${cn!==null?`触发（首位同为 ${cn}）`:'不触发（首位数字不同）'}</div>`;
+  $('sOut').innerHTML = h;
 }
 
 /* ---- ③ 平衡调参 ---- */
-const TUNE_SCHEMA=[
-  {hd:'全局'},
-  {path:'handSize', label:'每回合手牌张数', min:3,max:8,step:1},
-  {path:'singleDmgRatio', label:'单卡进攻收益系数', min:0.1,max:1,step:0.05},
-  {path:'shieldMax', label:'护盾层数上限', min:0,max:6,step:1},
-  {path:'cyclePressure', label:'轮次压力系数', min:0,max:4,step:1},
-  {path:'skillResetTo', label:'觉醒技归元目标值', min:0,max:6,step:1},
-  {hd:'敌人 · 血量与推力'},
-  {path:'enemies.apprentice.hp', label:'学徒 HP', min:10,max:150,step:1},
-  {path:'enemies.apprentice.push', label:'学徒 推力', min:0,max:6,step:1},
-  {path:'enemies.surgeon.hp', label:'拾骨者 HP', min:10,max:150,step:1},
-  {path:'enemies.surgeon.push', label:'拾骨者 推力', min:0,max:6,step:1},
-  {path:'enemies.homeo.hp', label:'持秤者 HP', min:10,max:150,step:1},
-  {path:'enemies.homeo.push', label:'持秤者 推力基础', min:0,max:6,step:1},
-  {path:'enemies.ascetic.hp', label:'苦行僧 HP', min:10,max:150,step:1},
-  {path:'enemies.ascetic.push', label:'苦行僧 推力', min:0,max:6,step:1},
-  {path:'enemies.ascetic.heal', label:'苦行僧 噪音税回血', min:0,max:30,step:1},
-  {path:'enemies.zealot.hp', label:'狂热者 HP', min:10,max:150,step:1},
-  {path:'enemies.zealot.push', label:'狂热者 推力', min:0,max:6,step:1},
+const GLOBAL_TUNE = [
+  {path:'initialAxis',     label:'初始数轴位置', min:0, max:9, step:1},
+  {path:'handSize',        label:'每回合手牌张数', min:3, max:8, step:1},
+  {path:'cyclePressure',   label:'轮次压力系数', min:0, max:4, step:1},
+  {path:'skillResetTo',    label:'觉醒技归元目标值', min:0, max:6, step:1},
+  {path:'skillUnlockAt',   label:'觉醒技解锁阈值', min:5, max:9, step:1},
 ];
-function getPath(o,p){ return p.split('.').reduce((x,k)=>x[k],o); }
-function setPath(o,p,v){ const ks=p.split('.'); const last=ks.pop();
-  ks.reduce((x,k)=>x[k],o)[last]=v; }
+
+const ENEMY_TUNE = [
+  {id:'grunt',       label:'无脑筋肉人 HP'},
+  {id:'grunt_pro',   label:'无脑筋肉人 pro HP'},
+  {id:'grunt_group', label:'无脑筋肉人 group×3 HP'},
+];
+
+// 每张卡可调的具体字段
+const CARD_TUNE = [
+  {id:'00', upFields:[['nextTurnBonus','下回合数字+', 0, 4, 1]], revFields:[['nextTurnBonus','下回合数字+', 0, 4, 1]]},
+  {id:'01', upFields:[['axisDelta','正位·任意轴', -6, 6, 1]], revFields:[['damage','倒位·伤害', 0, 30, 1]]},
+  {id:'11', upFields:[['axisDelta','正位·任意轴', -6, 6, 1]], revFields:[['damage','倒位·伤害', 0, 30, 1]]},
+  {id:'02', upFields:[['shield','正位·套盾', 0, 9, 1]], revFields:[]},
+  {id:'03', upFields:[['axisDelta','正位·任意轴', -6, 6, 1]], revFields:[['damage','倒位·伤害', 0, 30, 1]]},
+  {id:'12', upFields:[], revFields:[['enemyShield','倒位·敌方护盾+', 0, 30, 1]]},
+  {id:'04', upFields:[['axisDelta','正位·任意轴', -6, 6, 1]], revFields:[['damage','倒位·伤害', 0, 30, 1]]},
+  {id:'13', upFields:[['shield','正位·套盾', 0, 9, 1]], revFields:[['shield','倒位·套盾', 0, 9, 1]]},
+  {id:'24', upFields:[
+      ['axisDelta','正位·任意轴', -6, 6, 1],
+      ['executeThreshold','重伤触发HP阈值', 0, 1, 0.05],
+      ['executeBonus','重伤每层伤害+', 0, 1, 0.05],
+    ], revFields:[['damage','倒位·伤害', 0, 40, 1]]},
+  {id:'33', upFields:[], revFields:[]},
+];
 
 function buildTuner(){
-  let out='', open=false;
-  TUNE_SCHEMA.forEach((s,i)=>{
-    if(s.hd){ if(open)out+='</div>'; out+=`<div class="tuneHd">${s.hd}</div><div class="tuneGrid">`; open=true; return; }
-    out+=`<label class="tuneItem">${s.label}
-      <input type="number" id="tn${i}" min="${s.min}" max="${s.max}" step="${s.step}"
-      value="${getPath(CFG,s.path)}"></label>`;
+  let out = '';
+
+  out += '<div class="tuneHd">全局</div><div class="tuneGrid">';
+  GLOBAL_TUNE.forEach((s, i) => {
+    out += `<label class="tuneItem">${s.label}
+      <input type="number" data-kind="glo" data-i="${i}" min="${s.min}" max="${s.max}" step="${s.step}"
+      value="${CFG[s.path]}"></label>`;
   });
-  if(open)out+='</div>';
-  $('tuner').innerHTML=out;
+  out += '</div>';
+
+  out += '<div class="tuneHd">敌人血量</div><div class="tuneGrid">';
+  ENEMY_TUNE.forEach((s, i) => {
+    out += `<label class="tuneItem">${s.label}
+      <input type="number" data-kind="enemy" data-i="${i}" min="10" max="200" step="1"
+      value="${CFG.enemies[s.id].hp}"></label>`;
+  });
+  out += '</div>';
+
+  out += '<div class="tuneHd">每张卡数值</div>';
+  CARD_TUNE.forEach((row, i) => {
+    const meta = CARD_BY_ID[row.id];
+    out += `<div class="cardTuneRow"><div class="cName">${meta.name}</div>`;
+    // up fields
+    out += '<div class="cSide">';
+    if(row.upFields.length){
+      row.upFields.forEach((f, fi) => {
+        const [key, lbl, mn, mx, st] = f;
+        const v = CFG.cards[row.id].up[key];
+        out += `<label>${lbl}<input type="number" data-kind="card" data-id="${row.id}" data-side="up" data-key="${key}" data-step="${st}" min="${mn}" max="${mx}" step="${st}" value="${v}"></label>`;
+      });
+    } else {
+      out += '<span style="color:var(--muted);font-size:11px">正位：固定逻辑（无可调数值）</span>';
+    }
+    out += '</div>';
+    // rev fields
+    out += '<div class="cSide">';
+    if(row.revFields.length){
+      row.revFields.forEach((f, fi) => {
+        const [key, lbl, mn, mx, st] = f;
+        const v = CFG.cards[row.id].rev[key];
+        out += `<label>${lbl}<input type="number" data-kind="card" data-id="${row.id}" data-side="rev" data-key="${key}" data-step="${st}" min="${mn}" max="${mx}" step="${st}" value="${v}"></label>`;
+      });
+    } else {
+      out += '<span style="color:var(--muted);font-size:11px">倒位：固定逻辑（无可调数值）</span>';
+    }
+    out += '</div>';
+    out += '</div>';
+  });
+
+  $('tuner').innerHTML = out;
 }
+
 function applyConfig(){
-  TUNE_SCHEMA.forEach((s,i)=>{
-    if(s.hd) return;
-    const el=$('tn'+i); if(!el) return;
-    let v=parseFloat(el.value);
-    if(isNaN(v)) v=getPath(DEFAULT_CONFIG,s.path);
-    v=Math.max(s.min,Math.min(s.max,v));
-    setPath(CFG,s.path,v);
+  $('tuner').querySelectorAll('input').forEach(el => {
+    const kind = el.dataset.kind;
+    let v = parseFloat(el.value);
+    if(isNaN(v)) return;
+    const min = parseFloat(el.min), max = parseFloat(el.max);
+    v = Math.max(min, Math.min(max, v));
+    if(kind === 'glo'){
+      const s = GLOBAL_TUNE[+el.dataset.i];
+      CFG[s.path] = v;
+    } else if(kind === 'enemy'){
+      const s = ENEMY_TUNE[+el.dataset.i];
+      CFG.enemies[s.id].hp = v;
+    } else if(kind === 'card'){
+      CFG.cards[el.dataset.id][el.dataset.side][el.dataset.key] = v;
+    }
   });
-  buildTuner(); buildStart();
-  $('cfgMsg').textContent='✓ 已应用。开始新对局完全生效；系数类对进行中的对局也即时生效。';
+  buildTuner();
+  buildStart();
+  $('cfgMsg').textContent = '✓ 已应用。开始新对局完全生效；系数类对进行中的对局也即时生效。';
 }
+
 function exportConfig(){
-  const json=JSON.stringify(CFG,null,2);
-  $('cfgImport').value=json;
+  const json = JSON.stringify(CFG, null, 2);
+  $('cfgImport').value = json;
   try{
-    const blob=new Blob([json],{type:'application/json'});
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download='card-balance-config.json';
+    const blob = new Blob([json], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'shenquexi-balance.json';
     document.body.appendChild(a); a.click(); a.remove();
-    $('cfgMsg').textContent='✓ 已导出 card-balance-config.json（同时已填入下方文本框，可直接复制）。';
-  }catch(e){
-    $('cfgMsg').textContent='已把配置填入下方文本框，可手动复制。';
+    $('cfgMsg').textContent = '✓ 已导出 shenquexi-balance.json（同时已填入下方文本框，可直接复制）。';
+  } catch(e){
+    $('cfgMsg').textContent = '已把配置填入下方文本框，可手动复制。';
   }
 }
+
 function importConfig(){
   try{
-    const obj=JSON.parse($('cfgImport').value);
-    const nc=clone(DEFAULT_CONFIG);
-    ['handSize','singleDmgRatio','shieldMax','cyclePressure','skillResetTo'].forEach(k=>{
-      if(typeof obj[k]==='number') nc[k]=obj[k];
+    const obj = JSON.parse($('cfgImport').value);
+    const nc = clone(DEFAULT_CONFIG);
+    ['initialAxis','handSize','cyclePressure','skillResetTo','skillUnlockAt'].forEach(k => {
+      if(typeof obj[k] === 'number') nc[k] = obj[k];
     });
     if(obj.enemies) for(const id in nc.enemies)
-      if(obj.enemies[id]) Object.assign(nc.enemies[id],obj.enemies[id]);
-    CFG=nc;
+      if(obj.enemies[id] && typeof obj.enemies[id].hp === 'number') nc.enemies[id].hp = obj.enemies[id].hp;
+    if(obj.cards) for(const id in nc.cards){
+      if(obj.cards[id]){
+        if(obj.cards[id].up) Object.assign(nc.cards[id].up, obj.cards[id].up);
+        if(obj.cards[id].rev) Object.assign(nc.cards[id].rev, obj.cards[id].rev);
+      }
+    }
+    CFG = nc;
     buildTuner(); buildStart();
-    $('cfgMsg').textContent='✓ 已导入配置。点「应用」或直接开始新对局。';
-  }catch(e){
-    $('cfgMsg').textContent='✗ 导入失败：JSON 格式有误，请检查。';
+    $('cfgMsg').textContent = '✓ 已导入配置。点「应用」或直接开始新对局。';
+  } catch(e){
+    $('cfgMsg').textContent = '✗ 导入失败：JSON 格式有误，请检查。';
   }
 }
 function resetConfig(){
-  CFG=clone(DEFAULT_CONFIG);
+  CFG = clone(DEFAULT_CONFIG);
   buildTuner(); buildStart();
-  $('cfgMsg').textContent='已恢复默认配置。';
+  $('cfgMsg').textContent = '已恢复默认配置。';
 }
 
 /* =========================================================
-   九、初始化与导航
+   十一、初始化与导航
    ========================================================= */
 function buildStart(){
-  $('enemyGrid').innerHTML=ENEMIES.map((e,i)=>`
+  $('enemyGrid').innerHTML = ENEMIES.map((e, i) => `
     <div class="enemyCard" data-i="${i}">
       <h3>${e.name}${e.simple?'<span class="simpleBadge">推荐新手</span>':''}</h3>
       <div class="role">${e.role} · HP ${CFG.enemies[e.id]?CFG.enemies[e.id].hp:'?'}</div>
       <div class="mech">${e.mech}</div>
       <div class="mech" style="margin-top:6px;color:#7a5e1f">${e.hint}</div>
-      <div class="quote">${e.quote}</div>
+      ${e.quote?`<div class="quote">${e.quote}</div>`:''}
     </div>`).join('');
-  $('enemyGrid').querySelectorAll('.enemyCard').forEach(c=>{
-    c.onclick=()=>startBattle(ENEMIES[+c.dataset.i]);
+  $('enemyGrid').querySelectorAll('.enemyCard').forEach(c => {
+    c.onclick = () => startBattle(ENEMIES[+c.dataset.i]);
   });
 }
 function showStart(){
@@ -1105,24 +1487,24 @@ function showStart(){
   $('start').classList.remove('hidden');
 }
 
-$('btnTutorial').onclick=()=>startBattle(PUPPET,true);
-$('btnTool').onclick=()=>{
+$('btnTutorial').onclick = () => startBattle(PUPPET, true);
+$('btnTool').onclick = () => {
   $('start').classList.add('hidden');
   $('tool').classList.remove('hidden');
   buildTool();
 };
-$('toolBack').onclick=showStart;
-$('cfgApply').onclick=applyConfig;
-$('cfgExport').onclick=exportConfig;
-$('cfgReset').onclick=resetConfig;
-$('cfgImportBtn').onclick=importConfig;
-$('tutBtn').onclick=tutNext;
-$('btnPlay').onclick=doPlay;
-$('btnSkip').onclick=endTurn;
-$('btnSkill').onclick=doSkill;
-$('btnQuit').onclick=showStart;
-$('ovBtn').onclick=showStart;
-window.addEventListener('resize',()=>{
+$('toolBack').onclick = showStart;
+$('cfgApply').onclick = applyConfig;
+$('cfgExport').onclick = exportConfig;
+$('cfgReset').onclick = resetConfig;
+$('cfgImportBtn').onclick = importConfig;
+$('tutBtn').onclick = tutNext;
+$('btnPlay').onclick = doPlay;
+$('btnSkip').onclick = endTurn;
+$('btnSkill').onclick = doSkill;
+$('btnQuit').onclick = showStart;
+$('ovBtn').onclick = showStart;
+window.addEventListener('resize', () => {
   if(!$('battle').classList.contains('hidden')) showPreview();
 });
 
