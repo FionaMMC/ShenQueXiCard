@@ -691,6 +691,13 @@
   .prgRound.active{
     background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600;
   }
+  .progressHelp{
+    margin-top:10px;padding-top:10px;
+    border-top:1px dashed var(--line);
+    font-size:11.5px;color:var(--muted);line-height:1.7;
+  }
+  .progressHelp > div{margin-bottom:3px}
+  .progressHelp b{color:var(--ink);font-weight:600}
 
   /* 历史最高轮次记录 */
   .bestRecord{
@@ -820,6 +827,10 @@
         <button class="deckPeekBtn" id="btnDeckPeek">查看 10 张卡 ⓘ</button>
       </div>
       <div class="progressStrip" id="progressStrip"></div>
+      <div class="progressHelp">
+        <div>📌 <b>轮次中可以出牌一次</b>，每个回合内可以有<b>无限轮次</b>！努力在一回合内创造尽可能多的轮次吧。</div>
+        <div>📌 抽牌堆为 0 时自动从弃牌堆中洗入，<b>每洗入一次所有卡牌的费用 +1</b>，结束回合后清零。</div>
+      </div>
     </div>
 
     <div class="panel" id="log"></div>
