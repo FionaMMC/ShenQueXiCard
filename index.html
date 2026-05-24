@@ -175,7 +175,31 @@
     padding:2px 8px;border-radius:4px;font-weight:600;
     border:1px solid var(--gold-line);font-size:10.5px;
   }
+  .handStatus .ooBadge{
+    background:#fff4d6;color:#a06b0e;
+    padding:2px 8px;border-radius:4px;font-weight:600;
+    border:1px solid rgba(160,107,14,.3);font-size:10.5px;
+  }
+  .handStatus .dimNote{
+    color:var(--muted);font-size:10.5px;
+  }
   .hand-col .actions{margin-top:12px;margin-bottom:0}
+  .handHint{
+    font-size:11px;color:var(--muted);
+    text-align:center;margin-top:10px;line-height:1.5;
+    padding:6px 10px;background:var(--bg-2);
+    border-radius:var(--radius-sm);border:1px solid var(--line);
+  }
+  .handHint b{color:var(--ink);font-weight:600}
+  .btn.next{
+    background:#fff;color:var(--ink);
+    border:1px solid var(--ink);box-shadow:var(--shadow-sm);
+  }
+  .btn.next:hover:not(:disabled){background:var(--bg)}
+  .btn.next:disabled{
+    background:#fafafa;color:#bbb;border-color:#e0e0e0;
+    cursor:not-allowed;
+  }
 
   /* 敌人 */
   #enemyPanel{padding:16px 18px;margin-bottom:14px}
@@ -304,6 +328,10 @@
     border-left:2px solid var(--ok);border-radius:0 5px 5px 0;color:var(--ok);
     font-size:12.5px;font-weight:500}
   .pvResult{padding:14px 16px;border-top:1px solid var(--line);background:var(--bg-2)}
+  .pvResultTop{
+    border-top:none;border-bottom:1px solid var(--line);
+    background:#fff;
+  }
   .pvAxis{font-size:14px;margin-bottom:6px;font-variant-numeric:tabular-nums}
   .tagPos{color:var(--pos);font-weight:600}
   .tagNeg{color:var(--neg);font-weight:600}
@@ -620,8 +648,10 @@
           <div class="handStatus" id="handStatus"></div>
         </div>
         <div class="hand" id="hand"></div>
+        <div class="handHint">卡牌上方数字与其对应颜色数轴 <b>相加</b>，下方数字与其对应颜色数轴 <b>相减</b></div>
         <div class="actions">
           <button class="btn play" id="btnPlay" disabled>确认出牌</button>
+          <button class="btn next" id="btnNextRound" disabled>下一轮次 ↻</button>
           <button class="btn skip" id="btnSkip">结束回合 →</button>
         </div>
       </div>
@@ -716,10 +746,13 @@ const DEFAULT_CONFIG = {
   handSize: 5,           // 每回合手牌张数
   skillResetTo: 4,       // 觉醒技「归元」把双轴设为的值
   skillUnlockAt: 8,      // 任一轴达到此值时解锁觉醒技
+  combosEnabled: false,  // 连击系统暂时关闭（设计未敲定）
 
-  /* ---- 10 张设计文档卡 · 每张可调数值 ---- */
+  /* ---- 10 张设计文档卡 · 每张可调数值 ----
+     24 的正倒效果调换：正位伤害 / 倒位 +2 + 重伤
+     00 仅下一轮次生效，可叠加（最多两次） */
   cards: {
-    '00': { up:{ nextTurnBonus:1, doubleEffect:true }, rev:{ nextTurnBonus:1, doubleEffect:true } },
+    '00': { up:{ feeBonus:1, effectMult:2 }, rev:{ feeBonus:1, effectMult:2 } },
     '01': { up:{ axisDelta:-1 }, rev:{ damage:3 } },
     '11': { up:{ axisDelta:+1 }, rev:{ damage:5 } },
     '02': { up:{ shield:2 }, rev:{ cancelEnemyNext:true } },
@@ -727,7 +760,7 @@ const DEFAULT_CONFIG = {
     '12': { up:{ immuneDebuff:true }, rev:{ enemyShield:6 } },
     '04': { up:{ axisDelta:+2 }, rev:{ damage:10 } },
     '13': { up:{ shield:3 }, rev:{ cancelEnemyNext:true, shield:3 } },
-    '24': { up:{ axisDelta:+2, executeThreshold:0.40, executeBonus:0.10 }, rev:{ damage:16 } },
+    '24': { up:{ damage:16 }, rev:{ axisDelta:+2, executeThreshold:0.40, executeBonus:0.10 } },
     '33': { up:{ resetToInitial:true }, rev:{ swapAxes:true } },
   },
 
@@ -755,7 +788,7 @@ const CARDS = [
   { id:'12', a:1, b:2, type:'defense', name:'12 · 御 debuff',hint:'正位：免疫敌方下次 debuff ／ 倒位：为敌方增加 N 护盾' },
   { id:'04', a:0, b:4, type:'attack',  name:'04 · 稳序推动', hint:'正位：任意数轴 +N ／ 倒位：造成伤害' },
   { id:'13', a:1, b:3, type:'defense', name:'13 · 三之盾',   hint:'正位：选一条数轴套盾 N ／ 倒位：取消敌方下次行动并套盾' },
-  { id:'24', a:2, b:4, type:'mid',     name:'24 · 秩序加压', hint:'正位：任意数轴 +N，敌方 HP<40% 触发重伤 ／ 倒位：高伤害' },
+  { id:'24', a:2, b:4, type:'mid',     name:'24 · 秩序加压', hint:'正位：高伤害 ／ 倒位：任意数轴 +N，敌方 HP<40% 触发重伤' },
   { id:'33', a:3, b:3, type:'mid',     name:'33 · 三才归元', hint:'正位：数轴回到初始 4-4（最终结算）／ 倒位：正负数轴对调' },
 ];
 const CARD_BY_ID = Object.fromEntries(CARDS.map(c=>[c.id, c]));
@@ -945,9 +978,10 @@ const G = {
   debuffNextTurn:false,    // 敌方技能：下一回合数轴变化 +1
   cancelEnemyNext:false,   // 02倒/13倒：使敌方下次受影响消失
   immuneNextDebuff:false,  // 12正：免疫下次 debuff
-  executeStacks:0,         // 24正：重伤累加（+10%/层 damage to enemy）
-  nextTurnEffectDouble:false, // 00：下一轮效果翻倍
-  nextTurnFeeBonus:0,         // 00：下一轮数轴变化 +N
+  executeStacks:0,         // 24倒：重伤累加（+10%/层 damage to enemy）
+  roundFeeBonus:0,         // 00：下一张牌数轴变化额外 +N（至多两次叠加）
+  roundEffectMult:1,       // 00：下一张牌效果倍率（×2 / ×4）
+  roundPlayedThisRound:false, // 本轮次是否已出过牌
   skillUsed:false, over:false,
   tutorial:false, tutIdx:0,
 };
@@ -1012,8 +1046,9 @@ function startBattle(enemy, isTutorial){
   G.cancelEnemyNext = false;
   G.immuneNextDebuff = false;
   G.executeStacks = 0;
-  G.nextTurnEffectDouble = false;
-  G.nextTurnFeeBonus = 0;
+  G.roundFeeBonus = 0;
+  G.roundEffectMult = 1;
+  G.roundPlayedThisRound = false;
   G.skillUsed = false; G.over = false;
   G.tutorial = !!isTutorial; G.tutIdx = 0;
   refillHand();
@@ -1091,14 +1126,19 @@ function effectDesc(card){
     lines.push(`任意轴 ${e.axisDelta>0?'+':''}${e.axisDelta}`);
     if(e.executeThreshold != null) lines.push(`敌&lt;${Math.round(e.executeThreshold*100)}%→重伤+${Math.round(e.executeBonus*100)}%`);
   }
-  if(e.damage != null) lines.push(`⚔ ${e.damage} 伤害`);
+  if(e.damage != null) lines.push(`造成 ${e.damage} 伤害`);
   if(e.shield != null) lines.push(`🛡 数轴盾 ${e.shield}`);
-  if(e.cancelEnemyNext) lines.push('取消敌方下次');
+  if(e.cancelEnemyNext){
+    const enemyHas = G.enemy && (G.eShield > 0 || G.debuffNextTurn) ? '（敌方当前 有 特殊效果）' : '';
+    lines.push(`取消敌方下次特殊效果${enemyHas}`);
+  }
   if(e.immuneDebuff) lines.push('免疫下次 debuff');
   if(e.enemyShield != null) lines.push(`敌方 +${e.enemyShield} 护盾`);
-  if(e.resetToInitial) lines.push(`数轴归 ±${CFG.initialAxis}（最终）`);
+  if(e.resetToInitial) lines.push(`正数轴变为${CFG.initialAxis}<br>倒数轴变为${CFG.initialAxis}`);
   if(e.swapAxes) lines.push('正负轴对调');
-  if(e.doubleEffect) lines.push(`下回合数字+${e.nextTurnBonus||1}、效果×2`);
+  if(e.feeBonus != null && e.effectMult != null){
+    lines.push(`下一轮次费用 +${e.feeBonus}<br>伤害/护盾效果 ×${e.effectMult}`);
+  }
   return lines.join('<br>') || '—';
 }
 
@@ -1176,26 +1216,37 @@ function render(preview){
     }
   }
   renderAxis(g);
-  const debuffStr = G.debuffNextTurn ? ' · ⚠ <b>下回合数轴变化+1</b>' : '';
-  const bonusStr = G.nextTurnFeeBonus>0 || G.nextTurnEffectDouble
-    ? ' · ✨ <b>00 加成生效中</b>' : '';
-  const feeBadge = G.shuffleBonus>0
-    ? `<span class="feeBadge">卡面 +${G.shuffleBonus}</span>` : '';
+  // 状态栏：再打出 N 张牌全卡面 +1 / 卡面 +N chip / 抽弃数量 / 00 加成 chip / debuff 提示
   const handStatusEl = $('handStatus');
   if(handStatusEl){
-    handStatusEl.innerHTML =
-      feeBadge
-      + `🃏 抽 <b>${G.deck.length}</b>`
-      + ` · 弃 <b>${G.discard.length}</b>`
-      + debuffStr + bonusStr;
+    // 还需要打多少张牌才会再触发一次洗牌（= 抽牌堆 + 手牌的 N）
+    // 简化：当抽牌堆 = 0 时，提示「下次出牌后将洗牌」
+    let parts = [];
+    const willShuffleNext = G.deck.length === 0 && G.discard.length > 0;
+    if(willShuffleNext){
+      parts.push(`<span class="dimNote">再打出牌将触发洗牌，所有卡面 +1（结束回合后清零）</span>`);
+    }
+    if(G.shuffleBonus > 0){
+      parts.push(`<span class="feeBadge">卡面 +${G.shuffleBonus}</span>`);
+    }
+    parts.push(`🃏 抽 <b>${G.deck.length}</b>`);
+    parts.push(`弃 <b>${G.discard.length}</b>`);
+    if(G.roundFeeBonus > 0 || G.roundEffectMult > 1){
+      const stars = G.roundEffectMult >= 4 ? '✨✨' : '✨';
+      parts.push(`<span class="ooBadge">${stars} 00 加成生效中（费用+${G.roundFeeBonus}、效果×${G.roundEffectMult}）</span>`);
+    }
+    if(G.debuffNextTurn) parts.push(`<span class="dimNote">⚠ 下回合数轴变化 +1</span>`);
+    handStatusEl.innerHTML = parts.join(' · ');
   }
   const handEl = $('hand');
   handEl.innerHTML = G.hand.map(renderDomino).join('');
   handEl.querySelectorAll('.domino').forEach(d=>{
     d.onclick = () => toggleSel(d.dataset.uid);
   });
-  $('handTitle').textContent = `手牌（本轮剩 ${G.hand.length} 张 · 点击选择，最多 2 张）`;
-  $('btnPlay').disabled = G.sel.length===0 || G.over;
+  const lockNote = G.roundPlayedThisRound ? '（本轮已出牌，点「下一轮次」继续）' : '点击选择，最多 2 张';
+  $('handTitle').textContent = `手牌（本轮剩 ${G.hand.length} 张 · ${lockNote}）`;
+  $('btnPlay').disabled = G.sel.length===0 || G.over || G.roundPlayedThisRound;
+  $('btnNextRound').disabled = !G.roundPlayedThisRound || G.over;
   $('btnSkip').disabled = G.over;
 }
 
@@ -1237,23 +1288,26 @@ function showPreview(){
   }
   const sim = simulatePlay(cards);
   let h = '';
-  h += `<div class="pvHead">${cards.length===1?'打出单牌':'打出双牌'}　·　出牌前数轴：正 +${sim.before.pos} ／ 负 −${sim.before.neg}</div>`;
+  h += `<div class="pvHead">${cards.length===1?'打出单牌':'打出双牌'}　·　出牌前数轴：正 ${sim.before.pos} ／ 负 ${sim.before.neg}</div>`;
+  // 计算结果置顶：先告诉你最终数轴与伤害，再展开过程
+  h += '<div class="pvResult pvResultTop">';
+  h += `<div class="pvAxis"><b>预计数轴</b>　<span class="tagPos">正轴 ${sim.before.pos} → ${sim.pos}</span>　<span class="tagNeg">负轴 ${sim.before.neg} → ${sim.neg}</span></div>`;
+  if(sim.dmg>0) h += `<div class="pvDmg">⚔ 对敌方造成 ${sim.dmg} 点伤害${sim.dmgNote?`（${sim.dmgNote}）`:''}</div>`;
+  h += `<div class="pvSum ${sim.summary.cls}">${sim.summary.txt}</div>`;
+  h += '</div>';
+  // ① 数字结算
   h += '<div class="pvSec"><div class="pvSecT">① 数字结算 —— 牌上的数字推动数轴</div>';
   h += `<div class="pvNote">${sim.mainNote}</div>`;
   sim.numSteps.forEach(s=>{ h += `<div class="pvLine">${s}</div>`; });
   sim.pierceSteps.forEach(s=>{ h += `<div class="pvPierce">⚡ 贯穿：${s}</div>`; });
   h += '</div>';
+  // ② 卡面效果
   if(sim.effectSteps.length || sim.comboNote){
     h += '<div class="pvSec"><div class="pvSecT">② 卡面效果 —— 每张卡的正/倒位独立效果</div>';
     sim.effectSteps.forEach(s=>{ h += `<div class="pvEffect">${s}</div>`; });
     if(sim.comboNote) h += `<div class="pvCombo">★ ${sim.comboNote}</div>`;
     h += '</div>';
   }
-  h += '<div class="pvResult">';
-  h += `<div class="pvAxis"><b>预计数轴</b>　<span class="tagPos">正轴 +${sim.before.pos} → +${sim.pos}</span>　<span class="tagNeg">负轴 −${sim.before.neg} → −${sim.neg}</span></div>`;
-  if(sim.dmg>0) h += `<div class="pvDmg">⚔ 对敌方造成 ${sim.dmg} 点伤害${sim.dmgNote?`（${sim.dmgNote}）`:''}</div>`;
-  h += `<div class="pvSum ${sim.summary.cls}">${sim.summary.txt}</div>`;
-  h += '</div>';
   box.innerHTML = h;
   renderAxis({pos:Math.min(sim.pos,9), neg:Math.min(sim.neg,9)});
 }
@@ -1270,23 +1324,22 @@ function applyCardEffect(card, sim){
   const cfg = CFG.cards[card.id];
   if(!cfg) return;
   const e = card.orient==='upright' ? cfg.up : cfg.rev;
-  const mult = G.nextTurnEffectDouble ? 2 : 1;
+  const mult = sim.effectMult;  // 00 加成倍率：1 / 2 / 4
   const label = `${CARD_BY_ID[card.id].name}（${card.orient==='upright'?'正位':'倒位'}）`;
+  const target = card.target;   // 'pos' / 'neg' 玩家选择的目标轴（可空，启发式回退）
 
-  // 1. 任意数轴 ±N：启发式选择
+  // 1. 任意数轴 ±N：玩家箭头选轴；若未选则启发式
   if(e.axisDelta != null){
     const delta = e.axisDelta * mult;
-    let axis;
-    if(delta > 0){
-      // + 是把数轴推向 9 —— 加到较低那侧（更安全）
-      axis = sim.pos <= sim.neg ? 'pos' : 'neg';
-    } else {
-      // − 是把数轴拉向 0 —— 减较高那侧（更危险的清理）
-      axis = sim.pos >= sim.neg ? 'pos' : 'neg';
+    let axis = target;
+    if(!axis){
+      // 默认启发式：+ 加到较低那侧（散布风险）；− 减较高那侧（清最危险）
+      if(delta > 0) axis = sim.pos <= sim.neg ? 'pos' : 'neg';
+      else          axis = sim.pos >= sim.neg ? 'pos' : 'neg';
     }
     const before = sim[axis];
     let after = before + delta;
-    if(after < 0) after = 0;        // 卡面效果不再触发贯穿
+    if(after < 0) after = 0;
     if(after > 9) after = 9;
     sim[axis] = after;
     sim.effectSteps.push(`${label}：${axis==='pos'?'正轴':'负轴'} ${before} ${delta>=0?'+':'−'} ${Math.abs(delta)} = ${after}`);
@@ -1296,14 +1349,14 @@ function applyCardEffect(card, sim){
   if(e.damage != null){
     const base = e.damage * mult;
     sim.rawDmgList.push(base);
-    sim.effectSteps.push(`${label}：造成 ${base} 点伤害（基础${e.damage}${mult>1?` ×${mult}`:''}）`);
+    sim.effectSteps.push(`${label}：造成 ${base} 点伤害${mult>1?`（基础${e.damage} ×${mult}）`:''}`);
   }
 
-  // 3. 套盾（数轴护盾）
+  // 3. 套盾（数轴护盾，玩家箭头选轴）
   if(e.shield != null){
     const amt = e.shield * mult;
-    // 启发式：给较危险（数值较高）的一侧
-    const axis = sim.pos >= sim.neg ? 'pos' : 'neg';
+    let axis = target;
+    if(!axis) axis = sim.pos >= sim.neg ? 'pos' : 'neg';
     applyShield(sim, axis, amt);
     sim.effectSteps.push(`${label}：${axis==='pos'?'正轴':'负轴'} +${amt} 点护盾（下回合开始清空）`);
   }
@@ -1311,7 +1364,7 @@ function applyCardEffect(card, sim){
   // 4. 取消敌方下次行动
   if(e.cancelEnemyNext){
     sim.cancelEnemyNext = true;
-    sim.effectSteps.push(`${label}：使敌方下次行动消失（条件性效果直接被抵消）`);
+    sim.effectSteps.push(`${label}：取消敌方下次特殊效果`);
   }
 
   // 5. 免疫 debuff
@@ -1326,7 +1379,7 @@ function applyCardEffect(card, sim){
     sim.effectSteps.push(`${label}：⚠ 为敌方增加 ${e.enemyShield} 护盾`);
   }
 
-  // 7. 重伤累加判定（24 正）
+  // 7. 重伤累加判定（24 倒）
   if(e.executeThreshold != null && e.executeBonus != null){
     const ratio = G.eHp / G.eHpMax;
     if(ratio < e.executeThreshold){
@@ -1339,21 +1392,21 @@ function applyCardEffect(card, sim){
   if(e.resetToInitial){
     sim.pos = CFG.initialAxis;
     sim.neg = CFG.initialAxis;
-    sim.effectSteps.push(`${label}：数轴回到初始 ±${CFG.initialAxis}（最终结算，覆盖之前所有变化）`);
+    sim.effectSteps.push(`${label}：正数轴变为 ${CFG.initialAxis}，倒数轴变为 ${CFG.initialAxis}（最终结算）`);
     sim.finalOverride = true;
   }
 
   // 9. 33 倒：正负轴数字对调
   if(e.swapAxes){
     [sim.pos, sim.neg] = [sim.neg, sim.pos];
-    sim.effectSteps.push(`${label}：正负轴数字对调 → 正 +${sim.pos} ／ 负 −${sim.neg}`);
+    sim.effectSteps.push(`${label}：正负数轴数字对调 → 正 ${sim.pos} ／ 负 ${sim.neg}`);
   }
 
-  // 10. 00：下一轮 buff
-  if(e.doubleEffect){
-    sim.nextTurnBuffActivate = true;
-    sim.nextTurnFeeBonus = e.nextTurnBonus || 1;
-    sim.effectSteps.push(`${label}：下一轮所有牌效果数值翻倍，且数轴变化额外 +${e.nextTurnBonus||1}（可续杯）`);
+  // 10. 00：下一轮次 buff（仅一张牌，可叠加 ×2/×4）
+  if(e.feeBonus != null && e.effectMult != null){
+    sim.nextRoundFeeBonus += e.feeBonus;
+    sim.nextRoundEffectMult *= e.effectMult;
+    sim.effectSteps.push(`${label}：下一轮次卡牌费用 +${e.feeBonus}，伤害/护盾效果 ×${e.effectMult}`);
   }
 }
 
@@ -1370,23 +1423,30 @@ function simulatePlay(cards){
     : calcDouble(G.pos, G.neg, cards[0], cards[1]);
   let pos = calc.pos, neg = calc.neg;
 
-  // 00 buff 的「数轴变化 +1」加成（额外推到较高一侧 —— 这是 cost）
-  const feeBonus = G.nextTurnFeeBonus;
+  // 00 加成的「费用 +N」：仅推动数轴变化的一侧（不影响 0 变化的轴）
+  const feeBonus = G.roundFeeBonus;
   const feeNote = [];
   if(feeBonus > 0){
     const dp = pos - before.pos, dn = neg - before.neg;
-    if(dp > 0){ pos += feeBonus; feeNote.push(`00 加成：正轴额外 +${feeBonus}（${dp}→${dp+feeBonus}）`); }
-    if(dn > 0){ neg += feeBonus; feeNote.push(`00 加成：负轴额外 +${feeBonus}`); }
+    if(dp > 0){
+      pos += feeBonus;
+      feeNote.push(`00 加成：正轴额外 +${feeBonus}（${dp}→${dp+feeBonus}）`);
+    }
+    if(dn > 0){
+      neg += feeBonus;
+      feeNote.push(`00 加成：负轴额外 +${feeBonus}（${dn}→${dn+feeBonus}）`);
+    }
   }
 
   // 模拟器状态
   const sim = {
     pos, neg, before,
-    rawDmgList: [], enemyShieldDelta: 0,
+    rawDmgList: [], enemyShieldDelta: 0, enemyShieldUsed: 0,
     executeAdd: 0,
     cancelEnemyNext: false, immuneNextDebuff: false,
     shieldsDelta: {pos:0, neg:0},
-    nextTurnBuffActivate: false, nextTurnFeeBonus: 0,
+    effectMult: G.roundEffectMult,             // 这一手的效果倍率（已经收到的 00 加成）
+    nextRoundFeeBonus: 0, nextRoundEffectMult: 1,  // 这一手如果含 00 →下一轮次的加成
     finalOverride: false,
     mainNote: calc.mainNote,
     numSteps: calc.num.concat(feeNote),
@@ -1399,9 +1459,9 @@ function simulatePlay(cards){
   // ② 卡面效果（逐张）
   cards.forEach(c => applyCardEffect(c, sim));
 
-  // ③ 连击
+  // ③ 连击（设计未敲定，先关闭）
   let combo = null;
-  if(cards.length===2){
+  if(CFG.combosEnabled && cards.length===2){
     const cn = comboNumber(cards[0], cards[1]);
     if(cn !== null){
       combo = COMBO[cn];
@@ -1442,10 +1502,11 @@ function simulatePlay(cards){
     sim.dmgNote = `重伤 ×${(1+0.1*execNow).toFixed(1)}：${totalDmg}→${boosted}`;
     totalDmg = boosted;
   }
-  // 敌方护盾抵扣
+  // 敌方护盾抵扣（实际消耗，doPlay 会同步 G.eShield）
   if(G.eShield > 0 && totalDmg > 0){
     const blocked = Math.min(G.eShield, totalDmg);
     totalDmg -= blocked;
+    sim.enemyShieldUsed = blocked;
     sim.dmgNote = (sim.dmgNote?sim.dmgNote+'；':'') + `敌方护盾抵扣 ${blocked}`;
   }
   sim.dmg = totalDmg;
@@ -1470,30 +1531,34 @@ function simulatePlay(cards){
 }
 
 function doPlay(){
-  if(G.over || G.sel.length===0) return;
+  if(G.over || G.sel.length===0 || G.roundPlayedThisRound) return;
   const cards = selectedCards();
   const sim = simulatePlay(cards);
 
   // 应用数轴
   G.pos = sim.pos; G.neg = sim.neg;
 
-  // 应用伤害
+  // 应用伤害（先消耗敌方护盾，剩余伤害穿透）
+  if(sim.enemyShieldUsed > 0){
+    G.eShield = Math.max(0, G.eShield - sim.enemyShieldUsed);
+    log(`敌方护盾抵扣 ${sim.enemyShieldUsed} 点（剩 ${G.eShield}）`,'good');
+  }
   if(sim.dmg > 0){
     G.eHp -= sim.dmg;
-    log(`你出牌造成 <span class="dmg">${sim.dmg}</span> 点伤害${sim.dmgNote?`（${sim.dmgNote}）`:''}`);
+    log(`你出牌造成 <span class="dmg">${sim.dmg}</span> 点伤害`);
   }
 
-  // 应用敌方护盾增减
-  if(sim.enemyShieldDelta !== 0){
-    G.eShield = Math.max(0, G.eShield + sim.enemyShieldDelta);
-    log(`敌方护盾变化 ${sim.enemyShieldDelta>0?'+':''}${sim.enemyShieldDelta}（当前 ${G.eShield}）`, sim.enemyShieldDelta>0?'bad':'good');
+  // 给敌方加护盾（恶意效果）
+  if(sim.enemyShieldDelta > 0){
+    G.eShield += sim.enemyShieldDelta;
+    log(`⚠ 敌方护盾 +${sim.enemyShieldDelta}（当前 ${G.eShield}）`,'bad');
   }
   // 重伤累加
   if(sim.executeAdd > 0){
     G.executeStacks += sim.executeAdd;
-    log(`重伤层数 +${sim.executeAdd}（当前 ${G.executeStacks} 层，每层 +10%）`, 'good');
+    log(`重伤层数 +${sim.executeAdd}（当前 ${G.executeStacks} 层，每层 +10%）`,'good');
   }
-  // 护盾应用
+  // 数轴护盾应用
   for(const ax of ['pos','neg']){
     if(sim.shieldsDelta[ax] > 0){
       G.shields[ax] += sim.shieldsDelta[ax];
@@ -1501,18 +1566,14 @@ function doPlay(){
     }
   }
   // 状态 flag
-  if(sim.cancelEnemyNext){ G.cancelEnemyNext = true; log('敌方下次行动将被取消','good'); }
+  if(sim.cancelEnemyNext){ G.cancelEnemyNext = true; log('敌方下次特殊效果将被取消','good'); }
   if(sim.immuneNextDebuff){ G.immuneNextDebuff = true; log('已对下次 debuff 免疫','good'); }
-  // 00 下回合 buff
-  if(sim.nextTurnBuffActivate){
-    G.nextTurnEffectDouble = true;
-    G.nextTurnFeeBonus = sim.nextTurnFeeBonus;
-    log(`下一回合效果翻倍 · 数轴额外 +${sim.nextTurnFeeBonus}（可续杯）`,'good');
-  }
 
-  // 连击
-  if(sim.comboNote){
-    log(sim.comboNote.replace('连击触发！',''), 'good');
+  // 00 加成：消耗本轮收到的加成，并把这一手 00 设定下一轮的加成
+  G.roundFeeBonus = sim.nextRoundFeeBonus;
+  G.roundEffectMult = sim.nextRoundEffectMult;
+  if(sim.nextRoundFeeBonus > 0 || sim.nextRoundEffectMult > 1){
+    log(`下一轮次：费用 +${sim.nextRoundFeeBonus}，效果 ×${sim.nextRoundEffectMult}（00 加成）`,'good');
   }
 
   // 弃掉打出的牌
@@ -1520,32 +1581,38 @@ function doPlay(){
     const i = G.hand.findIndex(h => h.uid === c.uid);
     if(i>=0){ G.discard.push(G.hand[i]); G.hand.splice(i, 1); }
   });
-  // combo 0：弃掉所有手牌并重抽（特殊连击效果，已包含弃手牌动作）
-  const isCombo0 = cards.length===2 && comboNumber(cards[0], cards[1]) === 0;
   G.sel = [];
-  log(`数轴 → 正轴 +${G.pos} ｜ 负轴 −${G.neg}`);
+  G.roundPlayedThisRound = true;  // 本轮次锁定，不能再出
+  log(`数轴 → 正轴 ${G.pos} ｜ 负轴 ${G.neg}`);
   tutCheck('play');
 
   if(checkEnd()) return;
-
-  // 出牌后：弃掉剩余手牌，进入下一轮次（敌方不行动！）
-  // combo 0 已经清空手牌并补满了，跳过
-  if(!isCombo0){
-    if(G.hand.length > 0){
-      log(`本轮余下 ${G.hand.length} 张牌进入弃牌堆`);
-      G.discard.push(...G.hand);
-      G.hand = [];
-    }
-    refillHand();
-  }
-  G.round++;
-  log(`<span class="turn">— 轮次 ${G.round} —</span>`);
 
   showPreview();
   render();
 }
 
-/* ---- 结束回合：敌方行动一次，所有费用归 0，进入下一回合 ---- */
+/* ---- 下一轮次：弃剩余手牌 + 抽 5 张新牌 + 轮次 +1 ---- */
+function nextRound(){
+  if(G.over) return;
+  if(G.hand.length > 0){
+    log(`本轮余下 ${G.hand.length} 张牌进入弃牌堆`);
+    G.discard.push(...G.hand);
+    G.hand = [];
+  }
+  G.sel = [];
+  G.roundPlayedThisRound = false;
+  refillHand();
+  G.round++;
+  log(`<span class="turn">— 轮次 ${G.round} —</span>`);
+  showPreview();
+  render();
+}
+
+/* ---- 结束回合：敌方行动一次，所有费用归 0，进入下一回合 ----
+   关键：先把所有牌（手牌+抽牌堆+弃牌堆）合并洗回 deck，
+        再 shuffleBonus 归 0，然后 refillHand —— 这样新回合的牌一定带 +0
+        费用，不会因为"先抽就空触发洗牌"再 +1 */
 function endTurn(){
   if(G.over) return;
   G.sel = [];
@@ -1554,20 +1621,25 @@ function endTurn(){
   enemyAction();
   if(checkEnd()) return;
 
-  // 2) 进入下一回合：弃手牌、shuffleBonus 归 0、护盾归 0、00 buff 消耗、新抽 5 张
-  if(G.hand.length > 0){
-    G.discard.push(...G.hand);
-    G.hand = [];
-  }
+  // 2) 收回所有牌
+  G.discard.push(...G.hand, ...G.deck);
+  G.hand = []; G.deck = [];
+
+  // 3) 重置回合状态
   G.turn++;
   G.round = 1;
+  G.roundPlayedThisRound = false;
   if(G.shuffleBonus > 0){
     log(`卡面费用回归初始（原 +${G.shuffleBonus} 重置）`,'good');
     G.shuffleBonus = 0;
   }
   G.shields.pos = 0; G.shields.neg = 0;
-  G.nextTurnEffectDouble = false;
-  G.nextTurnFeeBonus = 0;
+  G.roundFeeBonus = 0;
+  G.roundEffectMult = 1;
+
+  // 4) 重洗 deck，不触发 +1（手动转移到 deck，drawCard 不再因为空触发）
+  G.deck = shuffle(G.discard); G.discard = [];
+
   log(`<span class="turn">— 回合 ${G.turn} —</span>`);
   refillHand();
 
@@ -1731,7 +1803,8 @@ const ENEMY_TUNE = [
 
 // 每张卡可调的具体字段
 const CARD_TUNE = [
-  {id:'00', upFields:[['nextTurnBonus','下回合数字+', 0, 4, 1]], revFields:[['nextTurnBonus','下回合数字+', 0, 4, 1]]},
+  {id:'00', upFields:[['feeBonus','下轮次费用+', 0, 4, 1],['effectMult','下轮次倍率', 1, 8, 1]],
+            revFields:[['feeBonus','下轮次费用+', 0, 4, 1],['effectMult','下轮次倍率', 1, 8, 1]]},
   {id:'01', upFields:[['axisDelta','正位·任意轴', -6, 6, 1]], revFields:[['damage','倒位·伤害', 0, 30, 1]]},
   {id:'11', upFields:[['axisDelta','正位·任意轴', -6, 6, 1]], revFields:[['damage','倒位·伤害', 0, 30, 1]]},
   {id:'02', upFields:[['shield','正位·套盾', 0, 9, 1]], revFields:[]},
@@ -1739,11 +1812,12 @@ const CARD_TUNE = [
   {id:'12', upFields:[], revFields:[['enemyShield','倒位·敌方护盾+', 0, 30, 1]]},
   {id:'04', upFields:[['axisDelta','正位·任意轴', -6, 6, 1]], revFields:[['damage','倒位·伤害', 0, 30, 1]]},
   {id:'13', upFields:[['shield','正位·套盾', 0, 9, 1]], revFields:[['shield','倒位·套盾', 0, 9, 1]]},
-  {id:'24', upFields:[
-      ['axisDelta','正位·任意轴', -6, 6, 1],
-      ['executeThreshold','重伤触发HP阈值', 0, 1, 0.05],
-      ['executeBonus','重伤每层伤害+', 0, 1, 0.05],
-    ], revFields:[['damage','倒位·伤害', 0, 40, 1]]},
+  {id:'24', upFields:[['damage','正位·伤害', 0, 40, 1]],
+            revFields:[
+              ['axisDelta','倒位·任意轴', -6, 6, 1],
+              ['executeThreshold','重伤触发HP阈值', 0, 1, 0.05],
+              ['executeBonus','重伤每层伤害+', 0, 1, 0.05],
+            ]},
   {id:'33', upFields:[], revFields:[]},
 ];
 
@@ -1901,6 +1975,7 @@ $('cfgReset').onclick = resetConfig;
 $('cfgImportBtn').onclick = importConfig;
 $('tutBtn').onclick = tutNext;
 $('btnPlay').onclick = doPlay;
+$('btnNextRound').onclick = nextRound;
 $('btnSkip').onclick = endTurn;
 // 觉醒技按钮暂时移出 UI（策划完成前先隐藏），doSkill() 函数保留
 $('btnQuit').onclick = showStart;
