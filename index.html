@@ -224,9 +224,47 @@
     border:1px solid var(--gold-line);
     border-radius:var(--radius-sm);
     padding:7px 11px;color:var(--gold);font-weight:500;
+    display:flex;flex-wrap:wrap;align-items:center;gap:6px;
   }
   .eShieldBadge{display:inline-block;background:var(--ok-bg);color:var(--ok);border-radius:5px;padding:2px 7px;
     font-size:11.5px;margin-left:6px;font-weight:600}
+  /* 多单位敌方 HP 区 */
+  #enemyUnits{display:flex;flex-direction:column;gap:8px;margin:10px 0 8px}
+  .eUnit{
+    padding:8px 10px;
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    transition:border-color .2s;
+  }
+  .eUnit.eUnitActive{
+    border-color:var(--ink);
+    background:#fff;
+    box-shadow:0 0 0 2px rgba(10,10,10,.05);
+  }
+  .eUnit.eUnitDead{
+    opacity:.5;
+    background:#f5f5f5;
+  }
+  .eUnitNum{
+    display:block;font-size:10px;color:var(--muted);
+    letter-spacing:0.12em;text-transform:uppercase;font-weight:600;margin-bottom:4px;
+  }
+  .eUnitMeta{font-size:11.5px;color:var(--ink-2);margin-top:4px;font-variant-numeric:tabular-nums}
+  .eUnitMeta b{font-weight:600}
+  .eUnitDeadTxt{color:var(--danger);font-weight:600;letter-spacing:0.08em}
+  .eUnit .hpbar{margin:4px 0 0;height:10px}
+  .eUnit.eUnitActive .hpbar{height:14px}
+  /* 敌方意图 chips */
+  .intentChip{
+    display:inline-block;padding:3px 8px;border-radius:5px;
+    background:#fff;border:1px solid var(--gold-line);
+    font-size:11.5px;color:var(--gold);font-weight:500;
+  }
+  .intentChip.intentChipActive{
+    background:var(--gold);color:#fff;font-weight:600;
+    border-color:var(--gold);
+  }
 
   /* 数轴 —— 两条竖直数轴并排，0 在底、9 在顶 */
   #axisPanel{padding:18px 16px 14px;margin-bottom:14px}
@@ -372,11 +410,43 @@
   .pipgrid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);
     width:38px;height:38px;gap:3px}
   .pip{width:8px;height:8px;border-radius:50%;background:var(--ink);margin:auto}
-  .pip.off{background:transparent}
+  /* 卡面 pip 配色：上下两侧分别对应数轴 */
+  .pip.pip-pos{background:var(--pos)}
+  .pip.pip-neg{background:var(--neg)}
+  /* off 必须放最后以覆盖所有颜色 */
+  .pip.off{background:transparent!important}
   .pipgrid.pipNum{
     display:flex;align-items:center;justify-content:center;
     font-size:24px;font-weight:700;color:var(--ink);
     font-variant-numeric:tabular-nums;letter-spacing:-0.04em;
+  }
+  .pipgrid.pipNum.pip-pos{color:var(--pos)}
+  .pipgrid.pipNum.pip-neg{color:var(--neg)}
+  /* 00 加成 ✨ 标记 */
+  .dStars{
+    position:absolute;top:4px;right:4px;
+    font-size:13px;line-height:1;
+    pointer-events:none;
+  }
+  /* 任意轴 / 护盾 卡牌的方向选择箭头 */
+  .cardArrows{
+    display:flex;gap:3px;
+    padding:4px;border-top:1px solid var(--line);
+    background:#f6f3eb;
+  }
+  .cardArrowBtn{
+    flex:1;font-family:inherit;font-size:10px;font-weight:600;
+    padding:5px 4px;border:1px solid var(--line);
+    border-radius:4px;background:#fff;color:var(--muted);
+    cursor:pointer;transition:all .12s ease;
+    line-height:1;
+  }
+  .cardArrowBtn:hover{border-color:var(--ink);color:var(--ink)}
+  .cardArrowBtn[data-on="1"][data-act="pos"]{
+    background:var(--pos);color:#fff;border-color:var(--pos);
+  }
+  .cardArrowBtn[data-on="1"][data-act="neg"]{
+    background:var(--neg);color:#fff;border-color:var(--neg);
   }
   .dBadge{
     font-size:9.5px;text-align:center;padding:4px 1px;font-weight:600;line-height:1.3;
@@ -632,8 +702,8 @@
       <div class="enemyHead">
         <h2 id="eName">敌人</h2><span class="role" id="eRole"></span>
       </div>
-      <div class="hpbar"><div class="hpfill" id="eHpFill"></div></div>
-      <div class="enemyMeta"><b>血量</b> <span id="eHpText"></span><span id="eShield"></span> · <b>机制</b> <span id="eMech"></span></div>
+      <div id="enemyUnits"></div>
+      <div class="enemyMeta"><b>机制</b> <span id="eMech"></span></div>
       <div class="intent" id="eIntent"></div>
     </div>
 
@@ -928,9 +998,10 @@ const ENEMIES = [
   },
   {
     id:'grunt_group', name:'无脑筋肉人 group×3', role:'Brute · 群战',
+    units:3,  // ★ 三个独立单位，玩家从上往下依次击败
     quote:'',
-    mech:'随机攻击正 / 负轴；无玩家技能；节奏：攻1、攻1、攻3、强化、攻2、攻2、攻3。',
-    hint:'没有 debuff 技能，但伤害密集，需要持续控轴。',
+    mech:'三个独立 60 HP 单位，每只独立行动。无玩家技能；节奏：攻1、攻1、攻3、强化、攻2、攻2、攻3。',
+    hint:'每回合三只都会攻击，伤害密集；先打死哪只都行（按顺序）。',
     pattern:[
       {type:'atk', value:1},
       {type:'atk', value:1},
@@ -966,15 +1037,16 @@ const TUT = [
    四、游戏状态
    ========================================================= */
 const G = {
-  enemy:null, eHp:0, eHpMax:0, eShield:0,
+  enemy:null,
+  // ★ 多单位敌人：每只独立 HP / 护盾 / 攻击节奏；单只敌人 enemyUnits.length === 1
+  enemyUnits:[],           // [{hp, hpMax, shield, atkBonus, patternIdx, alive}]
+  activeUnitIdx:0,         // 当前承受伤害的单位下标（从顶往下击破）
   pos:0, neg:0,
   turn:1,                  // 回合：enemy 在每回合末行动一次，结束后费用归 0
   round:1,                 // 轮次：回合内每次出牌即推进一轮
   shuffleBonus:0,          // 卡面费用加成：每次弃牌堆洗回抽牌堆 +1，回合末归 0
   deck:[], discard:[], hand:[], sel:[],
   shields:{pos:0, neg:0},  // 每条数轴的护盾点数
-  enemyPatternIdx:0,
-  enemyAtkBonus:0,         // 强化自身累加
   debuffNextTurn:false,    // 敌方技能：下一回合数轴变化 +1
   cancelEnemyNext:false,   // 02倒/13倒：使敌方下次受影响消失
   immuneNextDebuff:false,  // 12正：免疫下次 debuff
@@ -982,10 +1054,27 @@ const G = {
   roundFeeBonus:0,         // 00：下一张牌数轴变化额外 +N（至多两次叠加）
   roundEffectMult:1,       // 00：下一张牌效果倍率（×2 / ×4）
   roundPlayedThisRound:false, // 本轮次是否已出过牌
+  cardTargets:{},          // 任意轴/护盾卡的玩家选择 uid → 'pos'|'neg'
   skillUsed:false, over:false,
   tutorial:false, tutIdx:0,
 };
 const $ = id => document.getElementById(id);
+
+/* ---- 多单位敌人辅助 ---- */
+function activeUnit(){ return G.enemyUnits[G.activeUnitIdx] || null; }
+function refreshActiveUnit(){
+  // 若当前 active 已死，找下一个活的；都死了停在最后一个
+  for(let i = G.activeUnitIdx; i < G.enemyUnits.length; i++){
+    if(G.enemyUnits[i].alive){ G.activeUnitIdx = i; return; }
+  }
+}
+function allEnemiesDead(){ return G.enemyUnits.every(u => !u.alive); }
+function aliveUnits(){ return G.enemyUnits.filter(u => u.alive); }
+function anyEnemyShield(){ return G.enemyUnits.some(u => u.alive && u.shield > 0); }
+function enemyUnitLabel(){
+  if(G.enemyUnits.length <= 1) return '敌方';
+  return `单位 ${G.activeUnitIdx + 1}`;
+}
 
 function shuffle(arr){
   for(let i=arr.length-1;i>0;i--){
@@ -1031,17 +1120,23 @@ function refillHand(){
 function startBattle(enemy, isTutorial){
   G.enemy = enemy;
   const ec = CFG.enemies[enemy.id];
-  G.eHpMax = ec ? ec.hp : (enemy.hp || 34);
-  G.eHp = G.eHpMax;
-  G.eShield = 0;
+  const unitHp = ec ? ec.hp : (enemy.hp || 34);
+  const unitCount = enemy.units || 1;
+  G.enemyUnits = [];
+  for(let i = 0; i < unitCount; i++){
+    G.enemyUnits.push({
+      hp: unitHp, hpMax: unitHp,
+      shield: 0, atkBonus: 0,
+      patternIdx: 0, alive: true,
+    });
+  }
+  G.activeUnitIdx = 0;
   G.pos = CFG.initialAxis; G.neg = CFG.initialAxis;
   G.turn = 1;
   G.round = 1;
   G.shuffleBonus = 0;
   G.deck = shuffle(buildDeck()); G.discard = []; G.hand = []; G.sel = [];
   G.shields = {pos:0, neg:0};
-  G.enemyPatternIdx = 0;
-  G.enemyAtkBonus = 0;
   G.debuffNextTurn = false;
   G.cancelEnemyNext = false;
   G.immuneNextDebuff = false;
@@ -1049,6 +1144,7 @@ function startBattle(enemy, isTutorial){
   G.roundFeeBonus = 0;
   G.roundEffectMult = 1;
   G.roundPlayedThisRound = false;
+  G.cardTargets = {};
   G.skillUsed = false; G.over = false;
   G.tutorial = !!isTutorial; G.tutIdx = 0;
   refillHand();
@@ -1066,7 +1162,7 @@ function startBattle(enemy, isTutorial){
   $('eMech').textContent = enemy.mech;
   logClear();
   log('<span class="turn">— 回合 1 —</span>');
-  log(`初始数轴：正轴 +${G.pos} ｜ 负轴 −${G.neg}`);
+  log(`初始数轴：正轴 ${G.pos} ｜ 负轴 ${G.neg}`);
   if(enemy.quote) log(enemy.quote, 'good');
   tutShow();
   showPreview();
@@ -1103,15 +1199,17 @@ function tutCheck(trigger){
 /* =========================================================
    五、渲染
    ========================================================= */
-function pipGrid(n){
+function pipGrid(n, side){
   // 多米诺标准点数只有 0~6，超过 6 时（受 shuffleBonus 影响）用数字显示
+  // side: 'pos' (蓝色, 对应正轴) / 'neg' (红色, 对应负轴) / undefined (黑色)
+  const sideCls = side === 'pos' ? 'pip-pos' : (side === 'neg' ? 'pip-neg' : '');
   if(n > 6 || n < 0){
-    return `<div class="pipgrid pipNum">${n}</div>`;
+    return `<div class="pipgrid pipNum ${sideCls}">${n}</div>`;
   }
   const map={0:[],1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
   const on=new Set(map[n]);
   let h='<div class="pipgrid">';
-  for(let i=0;i<9;i++) h+=`<div class="pip ${on.has(i)?'':'off'}"></div>`;
+  for(let i=0;i<9;i++) h+=`<div class="pip ${sideCls} ${on.has(i)?'':'off'}"></div>`;
   return h+'</div>';
 }
 
@@ -1129,7 +1227,7 @@ function effectDesc(card){
   if(e.damage != null) lines.push(`造成 ${e.damage} 伤害`);
   if(e.shield != null) lines.push(`🛡 数轴盾 ${e.shield}`);
   if(e.cancelEnemyNext){
-    const enemyHas = G.enemy && (G.eShield > 0 || G.debuffNextTurn) ? '（敌方当前 有 特殊效果）' : '';
+    const enemyHas = G.enemy && (anyEnemyShield() || G.debuffNextTurn) ? '（敌方当前 有 特殊效果）' : '';
     lines.push(`取消敌方下次特殊效果${enemyHas}`);
   }
   if(e.immuneDebuff) lines.push('免疫下次 debuff');
@@ -1147,17 +1245,55 @@ function renderDomino(card){
   const meta = CARD_BY_ID[card.id] || {name:card.id};
   const topN = up?card.a:card.b;
   const botN = up?card.b:card.a;
+  // 正位：上数字加正轴 → 上蓝；下数字减负轴 → 下红
+  // 倒位：上数字加负轴 → 上红；下数字减正轴 → 下蓝
+  const topSide = up ? 'pos' : 'neg';
+  const botSide = up ? 'neg' : 'pos';
   const faceStr = up ? `(+${card.a}, −${card.b})` : `(−${card.b}, +${card.a})`;
   const selPos = G.sel.indexOf(card.uid);
   const cls = 'domino' + (selPos>=0?' sel':'');
+  // 00 加成生效中时，所有手牌右上角 ✨ 标记（标志下次出牌会享受加成）
+  const showStars = (G.roundEffectMult > 1 || G.roundFeeBonus > 0) && selPos < 0;
+  const starCount = G.roundEffectMult >= 4 ? 2 : 1;
+  const starsHtml = showStars
+    ? `<div class="dStars">${'✨'.repeat(starCount)}</div>`
+    : '';
+  // 任意轴 / 护盾 卡的方向箭头（选中时显示）
+  const needsArrow = (function(){
+    const cfg = CFG.cards[card.id];
+    if(!cfg) return false;
+    const e = up ? cfg.up : cfg.rev;
+    return e && (e.axisDelta != null || e.shield != null);
+  })();
+  const target = getCardTarget(card);
+  const arrowsHtml = (selPos >= 0 && needsArrow) ? `
+    <div class="cardArrows" data-uid="${card.uid}">
+      <button class="cardArrowBtn" data-act="pos" data-uid="${card.uid}" ${target==='pos'?'data-on="1"':''}>◀ 正轴</button>
+      <button class="cardArrowBtn" data-act="neg" data-uid="${card.uid}" ${target==='neg'?'data-on="1"':''}>负轴 ▶</button>
+    </div>` : '';
   return `<div class="${cls}" data-uid="${card.uid}">
     <div class="cardCorner">${meta.name.split(' · ')[0]}</div>
     ${selPos>=0?`<div class="selOrder">${selPos+1}</div>`:''}
-    <div class="dHalf top">${pipGrid(topN)}</div>
-    <div class="dHalf">${pipGrid(botN)}</div>
+    ${starsHtml}
+    <div class="dHalf top">${pipGrid(topN, topSide)}</div>
+    <div class="dHalf">${pipGrid(botN, botSide)}</div>
     <div class="dBadge ${up?'up':'rev'}">${up?'正位':'倒位'} · ${faceStr}</div>
     <div class="dEffect"><span class="dKind">${meta.type}</span>${effectDesc(card)}</div>
+    ${arrowsHtml}
   </div>`;
+}
+
+/* 返回卡牌的目标轴：玩家手动选择优先，否则启发式 */
+function getCardTarget(card){
+  if(G.cardTargets && G.cardTargets[card.uid]) return G.cardTargets[card.uid];
+  const cfg = CFG.cards[card.id];
+  if(!cfg) return 'pos';
+  const e = card.orient === 'upright' ? cfg.up : cfg.rev;
+  if(!e) return 'pos';
+  if(e.shield != null) return G.pos >= G.neg ? 'pos' : 'neg';
+  if(e.axisDelta != null && e.axisDelta > 0) return G.pos <= G.neg ? 'pos' : 'neg';
+  if(e.axisDelta != null && e.axisDelta < 0) return G.pos >= G.neg ? 'pos' : 'neg';
+  return 'pos';
 }
 
 /* 单条数轴：传入数值（0-9）+ 预览数值（竖直版：0 在底、9 在顶） */
@@ -1201,10 +1337,9 @@ function renderAxis(preview){
 
 function render(preview){
   const e = G.enemy;
-  $('eHpFill').style.width = Math.max(0, G.eHp/G.eHpMax*100) + '%';
-  $('eHpText').textContent = `${Math.max(0,G.eHp)} / ${G.eHpMax}`;
-  $('eShield').innerHTML = G.eShield>0 ? ` <span class="eShieldBadge">护盾 ${G.eShield}</span>` : '';
-  $('eIntent').textContent = '⚔ 敌方意图：' + intentText();
+  // 渲染敌方 HP（单单位填旧 #eHpFill；多单位用 #enemyUnitsList）
+  renderEnemyHp();
+  $('eIntent').innerHTML = '⚔ 敌方意图：回合末 ' + intentChipsHtml();
   $('bTurn').textContent = `回合 ${G.turn} · 轮次 ${G.round}`;
   // 若调用者没传 ghost，但有选中的牌，就用 simulatePlay 算一遍 ghost
   let g = preview;
@@ -1241,7 +1376,16 @@ function render(preview){
   const handEl = $('hand');
   handEl.innerHTML = G.hand.map(renderDomino).join('');
   handEl.querySelectorAll('.domino').forEach(d=>{
-    d.onclick = () => toggleSel(d.dataset.uid);
+    d.onclick = (ev) => {
+      // 如果点的是方向箭头，不要触发卡片选中切换
+      const btn = ev.target.closest('.cardArrowBtn');
+      if(btn){
+        ev.stopPropagation();
+        setCardTarget(btn.dataset.uid, btn.dataset.act);
+        return;
+      }
+      toggleSel(d.dataset.uid);
+    };
   });
   const lockNote = G.roundPlayedThisRound ? '（本轮已出牌，点「下一轮次」继续）' : '点击选择，最多 2 张';
   $('handTitle').textContent = `手牌（本轮剩 ${G.hand.length} 张 · ${lockNote}）`;
@@ -1250,17 +1394,50 @@ function render(preview){
   $('btnSkip').disabled = G.over;
 }
 
-/* 敌方下次行动描述 */
-function intentText(){
-  if(!G.enemy.pattern || G.enemy.pattern.length===0) return '它静静站着，不会行动。';
-  const step = G.enemy.pattern[G.enemyPatternIdx % G.enemy.pattern.length];
-  if(step.type==='atk'){
-    const v = step.value + G.enemyAtkBonus;
-    return `回合末：随机一侧 +${v}` + (G.enemyAtkBonus?`（含强化 ${G.enemyAtkBonus}）`:'');
+/* 多单位敌方 HP 渲染（单单位 1 个 bar，group×3 三个 bars） */
+function renderEnemyHp(){
+  const el = $('enemyUnits');
+  if(!el) return;
+  const multi = G.enemyUnits.length > 1;
+  el.innerHTML = G.enemyUnits.map((u, i) => {
+    const pct = Math.max(0, u.hp / u.hpMax * 100);
+    const active = i === G.activeUnitIdx && u.alive;
+    const cls = 'eUnit' + (active?' eUnitActive':'') + (!u.alive?' eUnitDead':'');
+    const num = multi ? `<span class="eUnitNum">单位 ${i+1}/${G.enemyUnits.length}</span>` : '';
+    const status = u.alive
+      ? `血量 <b>${Math.max(0,u.hp)} / ${u.hpMax}</b>${u.shield>0?` · <span class="eShieldBadge">护盾 ${u.shield}</span>`:''}`
+      : `<span class="eUnitDeadTxt">已击破</span>`;
+    return `<div class="${cls}">
+      ${num}
+      <div class="hpbar"><div class="hpfill" style="width:${pct}%"></div></div>
+      <div class="eUnitMeta">${status}</div>
+    </div>`;
+  }).join('');
+}
+
+/* 敌方意图（每只活着的单位一个 chip；当前 active 高亮） */
+function intentChipsHtml(){
+  if(!G.enemy.pattern || G.enemy.pattern.length === 0){
+    return '<span class="intentChip">它静静站着，不会行动。</span>';
   }
-  if(step.type==='skill') return '回合末：施加技能 —— 你下回合数轴变化值 +1（限一回合）';
-  if(step.type==='buff') return '回合末：自我强化（后续攻击 +1）';
-  return '?';
+  const chips = [];
+  for(let i = 0; i < G.enemyUnits.length; i++){
+    const u = G.enemyUnits[i];
+    if(!u.alive) continue;
+    const step = G.enemy.pattern[u.patternIdx % G.enemy.pattern.length];
+    let txt = '';
+    if(step.type === 'atk'){
+      const v = step.value + u.atkBonus;
+      txt = `随机一侧 +${v}` + (u.atkBonus?`（强化 +${u.atkBonus}）`:'');
+    } else if(step.type === 'skill'){
+      txt = '施加技能 → 你下回合数轴 +1';
+    } else if(step.type === 'buff'){
+      txt = '自我强化（后续攻击 +1）';
+    }
+    const cls = 'intentChip' + (i === G.activeUnitIdx ? ' intentChipActive' : '');
+    chips.push(`<span class="${cls}">${txt}</span>`);
+  }
+  return chips.join(' ');
 }
 
 /* =========================================================
@@ -1270,13 +1447,29 @@ function selectedCards(){
   return G.sel.map(uid=>G.hand.find(c=>c.uid===uid)).filter(Boolean);
 }
 function toggleSel(uid){
-  if(G.over) return;
+  if(G.over || G.roundPlayedThisRound) return;
   const i=G.sel.indexOf(uid);
-  if(i>=0) G.sel.splice(i,1);
-  else { if(G.sel.length>=2) G.sel.shift(); G.sel.push(uid); }
+  if(i>=0){
+    G.sel.splice(i,1);
+    delete G.cardTargets[uid];     // 取消选中即清掉方向选择
+  } else {
+    if(G.sel.length>=2){
+      const dropped = G.sel.shift();
+      delete G.cardTargets[dropped];
+    }
+    G.sel.push(uid);
+  }
   showPreview();
   render();
   tutCheck('sel');
+}
+
+/* 玩家手动选择卡牌的目标轴（任意轴/护盾） */
+function setCardTarget(uid, axis){
+  if(G.over) return;
+  G.cardTargets[uid] = axis;
+  showPreview();
+  render();
 }
 function showPreview(){
   const cards = selectedCards();
@@ -1326,17 +1519,15 @@ function applyCardEffect(card, sim){
   const e = card.orient==='upright' ? cfg.up : cfg.rev;
   const mult = sim.effectMult;  // 00 加成倍率：1 / 2 / 4
   const label = `${CARD_BY_ID[card.id].name}（${card.orient==='upright'?'正位':'倒位'}）`;
-  const target = card.target;   // 'pos' / 'neg' 玩家选择的目标轴（可空，启发式回退）
+  // 玩家手动选择的目标轴（getCardTarget 会从 G.cardTargets 取，否则启发式）
+  const target = (typeof getCardTarget === 'function') ? getCardTarget(card) : null;
 
   // 1. 任意数轴 ±N：玩家箭头选轴；若未选则启发式
   if(e.axisDelta != null){
     const delta = e.axisDelta * mult;
-    let axis = target;
-    if(!axis){
-      // 默认启发式：+ 加到较低那侧（散布风险）；− 减较高那侧（清最危险）
-      if(delta > 0) axis = sim.pos <= sim.neg ? 'pos' : 'neg';
-      else          axis = sim.pos >= sim.neg ? 'pos' : 'neg';
-    }
+    const axis = target || (delta > 0
+      ? (sim.pos <= sim.neg ? 'pos' : 'neg')
+      : (sim.pos >= sim.neg ? 'pos' : 'neg'));
     const before = sim[axis];
     let after = before + delta;
     if(after < 0) after = 0;
@@ -1355,8 +1546,7 @@ function applyCardEffect(card, sim){
   // 3. 套盾（数轴护盾，玩家箭头选轴）
   if(e.shield != null){
     const amt = e.shield * mult;
-    let axis = target;
-    if(!axis) axis = sim.pos >= sim.neg ? 'pos' : 'neg';
+    const axis = target || (sim.pos >= sim.neg ? 'pos' : 'neg');
     applyShield(sim, axis, amt);
     sim.effectSteps.push(`${label}：${axis==='pos'?'正轴':'负轴'} +${amt} 点护盾（下回合开始清空）`);
   }
@@ -1381,7 +1571,8 @@ function applyCardEffect(card, sim){
 
   // 7. 重伤累加判定（24 倒）
   if(e.executeThreshold != null && e.executeBonus != null){
-    const ratio = G.eHp / G.eHpMax;
+    const u = activeUnit();
+    const ratio = u ? (u.hp / u.hpMax) : 1;
     if(ratio < e.executeThreshold){
       sim.executeAdd += 1;
       sim.effectSteps.push(`${label}：敌方 HP &lt; ${Math.round(e.executeThreshold*100)}% → 施加重伤（本场 +${Math.round(e.executeBonus*100)}% 伤害，可累加）`);
@@ -1502,9 +1693,10 @@ function simulatePlay(cards){
     sim.dmgNote = `重伤 ×${(1+0.1*execNow).toFixed(1)}：${totalDmg}→${boosted}`;
     totalDmg = boosted;
   }
-  // 敌方护盾抵扣（实际消耗，doPlay 会同步 G.eShield）
-  if(G.eShield > 0 && totalDmg > 0){
-    const blocked = Math.min(G.eShield, totalDmg);
+  // 敌方护盾抵扣（实际消耗，doPlay 会同步 active 单位的 shield）
+  const u = activeUnit();
+  if(u && u.shield > 0 && totalDmg > 0){
+    const blocked = Math.min(u.shield, totalDmg);
     totalDmg -= blocked;
     sim.enemyShieldUsed = blocked;
     sim.dmgNote = (sim.dmgNote?sim.dmgNote+'；':'') + `敌方护盾抵扣 ${blocked}`;
@@ -1538,20 +1730,33 @@ function doPlay(){
   // 应用数轴
   G.pos = sim.pos; G.neg = sim.neg;
 
-  // 应用伤害（先消耗敌方护盾，剩余伤害穿透）
-  if(sim.enemyShieldUsed > 0){
-    G.eShield = Math.max(0, G.eShield - sim.enemyShieldUsed);
-    log(`敌方护盾抵扣 ${sim.enemyShieldUsed} 点（剩 ${G.eShield}）`,'good');
-  }
-  if(sim.dmg > 0){
-    G.eHp -= sim.dmg;
-    log(`你出牌造成 <span class="dmg">${sim.dmg}</span> 点伤害`);
-  }
-
-  // 给敌方加护盾（恶意效果）
-  if(sim.enemyShieldDelta > 0){
-    G.eShield += sim.enemyShieldDelta;
-    log(`⚠ 敌方护盾 +${sim.enemyShieldDelta}（当前 ${G.eShield}）`,'bad');
+  // 应用伤害到当前活跃单位（先消耗敌方护盾，剩余伤害穿透）
+  const aU = activeUnit();
+  if(aU){
+    if(sim.enemyShieldUsed > 0){
+      aU.shield = Math.max(0, aU.shield - sim.enemyShieldUsed);
+      log(`${enemyUnitLabel()}护盾抵扣 ${sim.enemyShieldUsed} 点（剩 ${aU.shield}）`,'good');
+    }
+    if(sim.dmg > 0){
+      aU.hp -= sim.dmg;
+      log(`你对 ${enemyUnitLabel()} 造成 <span class="dmg">${sim.dmg}</span> 点伤害`);
+      if(aU.hp <= 0){
+        aU.alive = false;
+        log(`${enemyUnitLabel()} 已被击破！`,'good');
+        // 找下一个活的
+        for(let i = G.activeUnitIdx + 1; i < G.enemyUnits.length; i++){
+          if(G.enemyUnits[i].alive){ G.activeUnitIdx = i; break; }
+        }
+      }
+    }
+    // 给敌方加护盾（恶意效果）—— 加到 active 单位
+    if(sim.enemyShieldDelta > 0){
+      const stillActive = activeUnit();
+      if(stillActive && stillActive.alive){
+        stillActive.shield += sim.enemyShieldDelta;
+        log(`⚠ ${enemyUnitLabel()} 护盾 +${sim.enemyShieldDelta}（当前 ${stillActive.shield}）`,'bad');
+      }
+    }
   }
   // 重伤累加
   if(sim.executeAdd > 0){
@@ -1647,58 +1852,75 @@ function endTurn(){
   render();
 }
 
-/* 敌方行动一次（不再每回合清手牌；调用方负责） */
+/* 敌方行动一次：所有 alive 单位各走一步 pattern */
 function enemyAction(){
-  if(G.cancelEnemyNext){
-    G.cancelEnemyNext = false;
-    log('「取消敌方下次行动」生效，敌方本回合行动被消除','good');
-    G.enemyPatternIdx++;
-    return;
-  }
+  if(allEnemiesDead()) return;
   if(!G.enemy.pattern || G.enemy.pattern.length === 0){
     log('教学木偶静静站着，没有行动。','');
     return;
   }
-  const step = G.enemy.pattern[G.enemyPatternIdx % G.enemy.pattern.length];
-  G.enemyPatternIdx++;
-  if(step.type === 'atk'){
-    let v = step.value + G.enemyAtkBonus;
-    if(G.debuffNextTurn){
+  // cancelEnemyNext 只取消第一个 alive 单位的下次行动
+  let cancelOne = G.cancelEnemyNext;
+  G.cancelEnemyNext = false;
+  let debuffConsumed = false;
+
+  for(let i = 0; i < G.enemyUnits.length; i++){
+    const u = G.enemyUnits[i];
+    if(!u.alive) continue;
+    const label = G.enemyUnits.length > 1 ? `单位 ${i+1}` : '敌方';
+
+    if(cancelOne){
+      log(`${label} 下次行动被取消`,'good');
+      u.patternIdx++;
+      cancelOne = false;
+      continue;
+    }
+
+    const step = G.enemy.pattern[u.patternIdx % G.enemy.pattern.length];
+    u.patternIdx++;
+
+    if(step.type === 'atk'){
+      let v = step.value + u.atkBonus;
+      // debuff 只在第一只行动时消耗（避免叠加 +3）
+      if(G.debuffNextTurn && !debuffConsumed){
+        if(G.immuneNextDebuff){
+          G.immuneNextDebuff = false;
+          log('debuff 被免疫，本回合数轴变化不额外 +1','good');
+        } else {
+          v += 1;
+          log('上回合敌方技能生效：本次数轴变化 +1','bad');
+        }
+        G.debuffNextTurn = false;
+        debuffConsumed = true;
+      }
+      const axis = Math.random() < 0.5 ? 'pos' : 'neg';
+      let actual = v;
+      if(G.shields[axis] > 0){
+        const blocked = Math.min(G.shields[axis], v);
+        actual = v - blocked;
+        G.shields[axis] -= blocked;
+        log(`${axis==='pos'?'正轴':'负轴'} 护盾抵扣 ${blocked}（剩 ${G.shields[axis]}）`,'good');
+      }
+      if(actual > 0){
+        if(axis==='pos') G.pos += actual; else G.neg += actual;
+      }
+      log(`${label} 攻击：${axis==='pos'?'正轴':'负轴'} +${v}${actual!==v?`（实际 +${actual}）`:''}`,'dmg');
+      const r = resolvePierce(G.pos, G.neg);
+      G.pos = r.pos; G.neg = r.neg;
+      r.pierce.forEach(s => log('⚡ '+s, 'bad'));
+      if(G.pos >= 9 || G.neg >= 9) return;  // 玩家失败，停止后续行动
+    } else if(step.type === 'skill'){
       if(G.immuneNextDebuff){
         G.immuneNextDebuff = false;
-        log('debuff 被免疫，本回合数轴变化不额外 +1','good');
+        log(`${label} 施加技能，但被你免疫了`,'good');
       } else {
-        v += 1;
-        log('上回合敌方技能生效：本次数轴变化 +1','bad');
+        G.debuffNextTurn = true;
+        log(`${label} 施加技能：你下一回合数轴变化 +1（限一回合）`,'bad');
       }
-      G.debuffNextTurn = false;
+    } else if(step.type === 'buff'){
+      u.atkBonus += 1;
+      log(`${label} 强化自身（后续攻击 +1，当前 +${u.atkBonus}）`,'bad');
     }
-    const axis = Math.random() < 0.5 ? 'pos' : 'neg';
-    let actual = v;
-    if(G.shields[axis] > 0){
-      const blocked = Math.min(G.shields[axis], v);
-      actual = v - blocked;
-      G.shields[axis] -= blocked;
-      log(`${axis==='pos'?'正轴':'负轴'} 护盾抵扣 ${blocked}（剩 ${G.shields[axis]}）`,'good');
-    }
-    if(actual > 0){
-      if(axis==='pos') G.pos += actual; else G.neg += actual;
-    }
-    log(`敌方攻击：${axis==='pos'?'正轴':'负轴'} +${v}${actual!==v?`（实际 +${actual}）`:''}`, 'dmg');
-    const r = resolvePierce(G.pos, G.neg);
-    G.pos = r.pos; G.neg = r.neg;
-    r.pierce.forEach(s => log('⚡ '+s, 'bad'));
-  } else if(step.type === 'skill'){
-    if(G.immuneNextDebuff){
-      G.immuneNextDebuff = false;
-      log('敌方施加技能，但被你免疫了','good');
-    } else {
-      G.debuffNextTurn = true;
-      log('敌方施加技能：你下一回合数轴变化 +1（限一回合）','bad');
-    }
-  } else if(step.type === 'buff'){
-    G.enemyAtkBonus += 1;
-    log(`敌方强化自身（后续攻击 +1，当前 +${G.enemyAtkBonus}）`,'bad');
   }
 }
 
@@ -1714,7 +1936,7 @@ function doSkill(){
 }
 
 function checkEnd(){
-  if(G.eHp <= 0){ endGame(true,'敌方血量清空。'); return true; }
+  if(allEnemiesDead()){ endGame(true,'敌方全部击破。'); return true; }
   if(G.pos >= 9){ endGame(false,'正数轴抵达 9，数轴崩溃。'); return true; }
   if(G.neg >= 9){ endGame(false,'负数轴抵达 9，数轴崩溃。'); return true; }
   return false;

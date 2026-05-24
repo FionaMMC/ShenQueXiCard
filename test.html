@@ -146,6 +146,11 @@ function buildTests(GM){
     const meta = CARD_BY_ID[id];
     return { id, a:meta.a, b:meta.b, orient, uid:'t'+id+orient[0] };
   }
+  // 辅助：把游戏状态的敌人重置为单只 hp 血量
+  function resetEnemy(hp){
+    G.enemyUnits = [{hp:hp, hpMax:hp, shield:0, atkBonus:0, patternIdx:0, alive:true}];
+    G.activeUnitIdx = 0;
+  }
 
   const tests = [
     /* ===== 第一组：数轴结算（设计文档原例） ===== */
@@ -334,7 +339,7 @@ function buildTests(GM){
     { group:'卡面效果（§10）', name:'33 正位：数轴回到初始 4-4（最终结算）', ref:'§10.4 33卡',
       run(){
         // 起手 +7, -2 时打 33 正位，先经数轴计算（推到不平衡）后被 reset 覆盖
-        G.pos = 7; G.neg = 2; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.pos = 7; G.neg = 2; resetEnemy(60);
         G.executeStacks = 0; G.roundFeeBonus = 0; G.roundEffectMult = 1;
         const sim = simulatePlay([mk('33','upright')]);
         assertEq({pos:sim.pos, neg:sim.neg}, {pos:4, neg:4}, '应回到 4-4');
@@ -344,7 +349,7 @@ function buildTests(GM){
     { group:'卡面效果（§10）', name:'33 倒位：正负轴数字对调', ref:'§10.4 33卡',
       run(){
         // 起手 +7, -2，先经 (-3,+3) 推动：n=2+3=5, p=7-3=4 → 然后 swap → pos=5, neg=4
-        G.pos = 7; G.neg = 2; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.pos = 7; G.neg = 2; resetEnemy(60);
         G.executeStacks = 0; G.roundFeeBonus = 0; G.roundEffectMult = 1;
         const sim = simulatePlay([mk('33','reversed')]);
         assertEq({pos:sim.pos, neg:sim.neg}, {pos:5, neg:4}, '推动后再对调');
@@ -352,7 +357,7 @@ function buildTests(GM){
 
     { group:'卡面效果（§10）', name:'01 倒位造成 3 点伤害', ref:'§10.4',
       run(){
-        G.pos = 4; G.neg = 4; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.pos = 4; G.neg = 4; resetEnemy(60);
         G.executeStacks = 0; G.roundFeeBonus = 0; G.roundEffectMult = 1;
         const sim = simulatePlay([mk('01','reversed')]);
         assertEq(sim.dmg, 3, '应造成 3 点');
@@ -360,7 +365,7 @@ function buildTests(GM){
 
     { group:'卡面效果（§10）', name:'04 倒位造成 10 点伤害', ref:'§10.4',
       run(){
-        G.pos = 4; G.neg = 4; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.pos = 4; G.neg = 4; resetEnemy(60);
         G.executeStacks = 0; G.roundFeeBonus = 0; G.roundEffectMult = 1;
         const sim = simulatePlay([mk('04','reversed')]);
         assertEq(sim.dmg, 10, '应造成 10 点');
@@ -369,20 +374,20 @@ function buildTests(GM){
     { group:'卡面效果（§10）', name:'24 倒位重伤：敌 HP < 40% 触发，叠加 10%（PDF 调换后）', ref:'§10.4',
       run(){
         // 第一次：HP 60/60 不触发
-        G.pos = 4; G.neg = 4; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.pos = 4; G.neg = 4; resetEnemy(60);
         G.executeStacks = 0; G.roundFeeBonus = 0; G.roundEffectMult = 1;
         const sim1 = simulatePlay([mk('24','reversed')]);
         assertEq(sim1.executeAdd, 0, '不应触发重伤');
 
         // HP 降到 20/60 = 33% 触发
-        G.eHp = 20;
+        G.enemyUnits[0].hp = 20;
         const sim2 = simulatePlay([mk('24','reversed')]);
         assertEq(sim2.executeAdd, 1, '应触发重伤 +1 层');
       }},
 
     { group:'卡面效果（§10）', name:'02 正位：给数轴套盾（启发式选较高一侧）', ref:'§10.4',
       run(){
-        G.pos = 6; G.neg = 3; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.pos = 6; G.neg = 3; resetEnemy(60);
         G.executeStacks = 0; G.roundFeeBonus = 0; G.roundEffectMult = 1;
         const sim = simulatePlay([mk('02','upright')]);
         // 02 正位 shield 2，套较高一侧（正轴）
@@ -391,7 +396,7 @@ function buildTests(GM){
 
     { group:'卡面效果（§10）', name:'12 倒位：给敌方加 6 护盾', ref:'§10.4',
       run(){
-        G.pos = 4; G.neg = 4; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.pos = 4; G.neg = 4; resetEnemy(60);
         G.executeStacks = 0; G.roundFeeBonus = 0; G.roundEffectMult = 1;
         const sim = simulatePlay([mk('12','reversed')]);
         assertEq(sim.enemyShieldDelta, 6, '应给敌方 +6 护盾');
@@ -399,7 +404,7 @@ function buildTests(GM){
 
     { group:'卡面效果（§10）', name:'02 倒位：使敌方下次受影响消失', ref:'§10.4',
       run(){
-        G.pos = 4; G.neg = 4; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.pos = 4; G.neg = 4; resetEnemy(60);
         G.executeStacks = 0; G.roundFeeBonus = 0; G.roundEffectMult = 1;
         const sim = simulatePlay([mk('02','reversed')]);
         assertTrue(sim.cancelEnemyNext, '应标记取消下次行动');
@@ -448,7 +453,7 @@ function buildTests(GM){
     /* ===== 双牌同时贯穿（端到端） ===== */
     { group:'综合', name:'§4.3 端到端：simulatePlay 双向贯穿', ref:'§4.3 + simulatePlay',
       run(){
-        G.pos = 1; G.neg = 1; G.eHp = 60; G.eHpMax = 60; G.eShield = 0;
+        G.pos = 1; G.neg = 1; resetEnemy(60);
         G.executeStacks = 0; G.roundFeeBonus = 0; G.roundEffectMult = 1;
         // (+0,-5): a=0,b=5,up; (+1,-6): a=1,b=6,up
         const sim = simulatePlay([
