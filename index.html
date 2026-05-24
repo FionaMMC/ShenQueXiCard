@@ -370,6 +370,10 @@
     border-top:none;border-bottom:1px solid var(--line);
     background:#fff;
   }
+  .pvFootnote{
+    margin-top:8px;font-size:11px;color:var(--muted-2);
+    text-align:center;font-style:italic;
+  }
   .pvAxis{font-size:14px;margin-bottom:6px;font-variant-numeric:tabular-nums}
   .tagPos{color:var(--pos);font-weight:600}
   .tagNeg{color:var(--neg);font-weight:600}
@@ -647,6 +651,81 @@
     backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
   }
 
+  /* 进度条 */
+  #progressPanel{padding:10px 14px;margin-bottom:12px}
+  .progressHead{
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:11px;color:var(--muted);
+    letter-spacing:0.12em;text-transform:uppercase;
+    margin-bottom:8px;font-weight:600;
+  }
+  .progressTotal{
+    font-weight:500;color:var(--ink);font-size:11px;
+    letter-spacing:0.04em;text-transform:none;
+  }
+  .deckPeekBtn{
+    font-family:inherit;font-size:11px;font-weight:600;
+    padding:5px 11px;border:1px solid var(--line);
+    border-radius:var(--radius-sm);background:#fff;
+    color:var(--muted);letter-spacing:0.04em;text-transform:none;
+    cursor:pointer;transition:all .15s ease;
+  }
+  .deckPeekBtn:hover{border-color:var(--ink);color:var(--ink)}
+  .progressStrip{
+    display:flex;flex-wrap:wrap;gap:4px;align-items:center;
+    font-size:11.5px;font-variant-numeric:tabular-nums;
+  }
+  .prgTurn{
+    font-weight:700;color:var(--gold);
+    padding:3px 8px;background:var(--gold-bg);
+    border:1px solid var(--gold-line);border-radius:4px;
+    margin-right:4px;font-size:11.5px;
+  }
+  .prgRound{
+    display:inline-block;min-width:22px;text-align:center;
+    padding:3px 6px;border-radius:3px;
+    color:var(--muted-2);background:#fff;border:1px solid var(--line);
+    font-size:11px;
+  }
+  .prgRound.done{color:var(--muted-2)}
+  .prgRound.active{
+    background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600;
+  }
+
+  /* 历史最高轮次记录 */
+  .bestRecord{
+    margin-top:14px;padding:10px 14px;
+    background:var(--gold-bg);border:1px solid var(--gold-line);
+    border-radius:var(--radius-sm);
+    font-size:13px;color:var(--gold);font-weight:600;
+    display:flex;align-items:center;gap:8px;
+  }
+  .bestRecord .trophy{font-size:16px}
+
+  /* 卡组查看弹窗 */
+  #deckModal{
+    position:fixed;inset:0;background:rgba(10,10,10,.45);
+    display:flex;align-items:center;justify-content:center;z-index:60;
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    padding:20px;
+  }
+  .deckModalBox{
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--radius);box-shadow:var(--shadow-lg);
+    max-width:600px;width:100%;max-height:80vh;display:flex;flex-direction:column;
+  }
+  .deckModalHead{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:14px 18px;border-bottom:1px solid var(--line);
+  }
+  .deckModalHead h2{font-size:15px;letter-spacing:-0.01em}
+  .deckModalClose{
+    background:none;border:none;font-size:18px;color:var(--muted);
+    cursor:pointer;width:28px;height:28px;border-radius:50%;
+  }
+  .deckModalClose:hover{background:var(--bg);color:var(--ink)}
+  .deckModalBody{padding:14px 18px;overflow-y:auto}
+
   /* 移动端适配 */
   @media (max-width:600px){
     .wrap{padding:16px 12px 36px}
@@ -674,6 +753,7 @@
   <div id="start">
     <h1>神缺席 · 规则模拟器</h1>
     <div class="sub">借多米诺骨牌之形 · 用十张设计文档卡牌在两条 0~9 数轴上博弈。</div>
+    <div id="bestRecord" class="bestRecord hidden"></div>
     <button class="tutStart" id="btnTutorial">▶ 第一次玩？点这里 · 手把手新手教学</button>
     <div class="sub" style="margin-top:18px">或直接挑战对手（建议先打绿标的「无脑筋肉人」）：</div>
     <div class="enemyGrid" id="enemyGrid"></div>
@@ -732,6 +812,15 @@
     </div>
 
     <div class="panel" id="preview"><span class="ph">从下方手牌中选择 1~2 张，这里会分两层一步步演算给你看。</span></div>
+
+    <div class="panel" id="progressPanel">
+      <div class="progressHead">
+        <span>当前进度</span>
+        <span class="progressTotal" id="progressTotal"></span>
+        <button class="deckPeekBtn" id="btnDeckPeek">查看 10 张卡 ⓘ</button>
+      </div>
+      <div class="progressStrip" id="progressStrip"></div>
+    </div>
 
     <div class="panel" id="log"></div>
   </div>
@@ -794,6 +883,24 @@
 </div>
 
 <div class="footer" id="footer">神缺席 · 规则模拟器 测试版 v0.5 — 设计文档 10 张卡 · 三类无脑筋肉人<br>欢迎测试并反馈手感、平衡、看不懂的地方</div>
+
+<!-- ================= 卡组查看弹窗 ================= -->
+<div id="deckModal" class="hidden">
+  <div class="deckModalBox">
+    <div class="deckModalHead">
+      <h2>当前 10 张卡 · W 系数与梯级</h2>
+      <button class="deckModalClose" id="deckModalClose">✕</button>
+    </div>
+    <div class="deckModalBody">
+      <div class="sub" style="margin-bottom:10px">梯级按 W 系数：
+        <span class="t0">低 0–3</span> ·
+        <span class="t1">中 4–6</span> ·
+        <span class="t2">高 7–9</span> ·
+        <span class="t3">极高 10–12</span></div>
+      <div id="deckModalChips"></div>
+    </div>
+  </div>
+</div>
 
 <!-- ================= 结算遮罩 ================= -->
 <div id="overlay" class="hidden">
@@ -1055,6 +1162,7 @@ const G = {
   roundEffectMult:1,       // 00：下一张牌效果倍率（×2 / ×4）
   roundPlayedThisRound:false, // 本轮次是否已出过牌
   cardTargets:{},          // 任意轴/护盾卡的玩家选择 uid → 'pos'|'neg'
+  roundsPerTurn:[],        // 已完成回合每个的轮次数（按 endTurn 时 push）
   skillUsed:false, over:false,
   tutorial:false, tutIdx:0,
 };
@@ -1074,6 +1182,88 @@ function anyEnemyShield(){ return G.enemyUnits.some(u => u.alive && u.shield > 0
 function enemyUnitLabel(){
   if(G.enemyUnits.length <= 1) return '敌方';
   return `单位 ${G.activeUnitIdx + 1}`;
+}
+
+/* ---- 排行榜：用 localStorage 存历史最高轮次 ---- */
+const BEST_KEY = 'shenquexi_best_rounds';
+function getBestRounds(){
+  try { return parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0; }
+  catch(e){ return 0; }
+}
+function saveBestRounds(n){
+  try{
+    if(n > getBestRounds()){
+      localStorage.setItem(BEST_KEY, String(n));
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+function totalRoundsThisRun(){
+  // 已完成回合的总轮次 + 当前回合到现在的轮次
+  return G.roundsPerTurn.reduce((a,b)=>a+b, 0) + G.round;
+}
+
+/* ---- 罗马数字（1~30 够用） ---- */
+function toRoman(n){
+  if(n <= 0) return '0';
+  const arr = ['','I','II','III','IV','V','VI','VII','VIII','IX','X',
+               'XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX',
+               'XXI','XXII','XXIII','XXIV','XXV','XXVI','XXVII','XXVIII','XXIX','XXX'];
+  return arr[n] || `T${n}`;
+}
+
+/* ---- 进度条渲染（每个回合罗马数字 + 已走过的轮次小数字） ---- */
+function renderProgress(){
+  const stripEl = $('progressStrip'), totalEl = $('progressTotal');
+  if(!stripEl) return;
+  let h = '';
+  // 已完成的回合
+  for(let t = 1; t < G.turn; t++){
+    h += `<span class="prgTurn">${toRoman(t)}</span>`;
+    const count = G.roundsPerTurn[t-1] || 0;
+    for(let r = 1; r <= count; r++){
+      h += `<span class="prgRound done">${r}</span>`;
+    }
+  }
+  // 当前回合
+  h += `<span class="prgTurn">${toRoman(G.turn)}</span>`;
+  for(let r = 1; r <= G.round; r++){
+    const active = r === G.round;
+    h += `<span class="prgRound ${active?'active':'done'}">${r}</span>`;
+  }
+  stripEl.innerHTML = h;
+  if(totalEl){
+    const total = totalRoundsThisRun();
+    const best = getBestRounds();
+    totalEl.textContent = `本局累计 ${total} 轮次${best>0?` · 历史最高 ${best}`:''}`;
+  }
+}
+
+/* ---- 卡组查看弹窗 ---- */
+function tierClassFor(w){
+  if(w<=3) return 't0';
+  if(w<=6) return 't1';
+  if(w<=9) return 't2';
+  return 't3';
+}
+function tierNameFor(w){
+  if(w<=3) return '低';
+  if(w<=6) return '中';
+  if(w<=9) return '高';
+  return '极高';
+}
+function openDeckModal(){
+  const box = $('deckModalChips');
+  if(!box) return;
+  box.innerHTML = '<div class="wChips">' + CARDS.map(c => {
+    const w = c.a + c.b;
+    return `<span class="wChip">${c.name}　W<b>${w}</b>　<span class="${tierClassFor(w)}">${tierNameFor(w)}</span></span>`;
+  }).join('') + '</div>';
+  $('deckModal').classList.remove('hidden');
+}
+function closeDeckModal(){
+  $('deckModal').classList.add('hidden');
 }
 
 function shuffle(arr){
@@ -1145,6 +1335,7 @@ function startBattle(enemy, isTutorial){
   G.roundEffectMult = 1;
   G.roundPlayedThisRound = false;
   G.cardTargets = {};
+  G.roundsPerTurn = [];
   G.skillUsed = false; G.over = false;
   G.tutorial = !!isTutorial; G.tutIdx = 0;
   refillHand();
@@ -1392,6 +1583,7 @@ function render(preview){
   $('btnPlay').disabled = G.sel.length===0 || G.over || G.roundPlayedThisRound;
   $('btnNextRound').disabled = !G.roundPlayedThisRound || G.over;
   $('btnSkip').disabled = G.over;
+  renderProgress();
 }
 
 /* 多单位敌方 HP 渲染（单单位 1 个 bar，group×3 三个 bars） */
@@ -1487,6 +1679,7 @@ function showPreview(){
   h += `<div class="pvAxis"><b>预计数轴</b>　<span class="tagPos">正轴 ${sim.before.pos} → ${sim.pos}</span>　<span class="tagNeg">负轴 ${sim.before.neg} → ${sim.neg}</span></div>`;
   if(sim.dmg>0) h += `<div class="pvDmg">⚔ 对敌方造成 ${sim.dmg} 点伤害${sim.dmgNote?`（${sim.dmgNote}）`:''}</div>`;
   h += `<div class="pvSum ${sim.summary.cls}">${sim.summary.txt}</div>`;
+  h += `<div class="pvFootnote">正负数轴为同一条共用 0 点的正反不为负的数轴 —— 任一侧到 9 即失败</div>`;
   h += '</div>';
   // ① 数字结算
   h += '<div class="pvSec"><div class="pvSecT">① 数字结算 —— 牌上的数字推动数轴</div>';
@@ -1830,7 +2023,8 @@ function endTurn(){
   G.discard.push(...G.hand, ...G.deck);
   G.hand = []; G.deck = [];
 
-  // 3) 重置回合状态
+  // 3) 重置回合状态（先记录本回合走过多少轮次，再 reset）
+  G.roundsPerTurn.push(G.round);
   G.turn++;
   G.round = 1;
   G.roundPlayedThisRound = false;
@@ -1944,11 +2138,16 @@ function checkEnd(){
 function endGame(win, reason){
   G.over = true;
   render();
+  const total = totalRoundsThisRun();
+  const wasBest = saveBestRounds(total);
   $('ovTitle').textContent = win?'胜利':'失败';
   $('ovTitle').style.color = win?'var(--ok)':'var(--danger)';
-  $('ovText').textContent = reason;
+  $('ovText').innerHTML = `${reason}<br><br>
+    <b>本局累计 ${total} 轮次</b>
+    ${wasBest?`<br><span style="color:var(--gold)">🏆 新纪录！</span>`:` · 历史最高 ${getBestRounds()}`}`;
   $('overlay').classList.remove('hidden');
   log(win?'<span class="good">★ 胜利 ★</span>':'<span class="bad">✗ 失败 ✗</span>');
+  log(`本局总轮次：${total}${wasBest?'（新纪录）':''}`);
 }
 
 /* =========================================================
@@ -2165,23 +2364,38 @@ function resetConfig(){
    十一、初始化与导航
    ========================================================= */
 function buildStart(){
-  $('enemyGrid').innerHTML = ENEMIES.map((e, i) => `
-    <div class="enemyCard" data-i="${i}">
+  $('enemyGrid').innerHTML = ENEMIES.map((e, i) => {
+    const hp = CFG.enemies[e.id]?CFG.enemies[e.id].hp:'?';
+    const hpLabel = e.units ? `HP ${hp} × ${e.units}` : `HP ${hp}`;
+    return `<div class="enemyCard" data-i="${i}">
       <h3>${e.name}${e.simple?'<span class="simpleBadge">推荐新手</span>':''}</h3>
-      <div class="role">${e.role} · HP ${CFG.enemies[e.id]?CFG.enemies[e.id].hp:'?'}</div>
+      <div class="role">${e.role} · ${hpLabel}</div>
       <div class="mech">${e.mech}</div>
       <div class="mech" style="margin-top:6px;color:#7a5e1f">${e.hint}</div>
       ${e.quote?`<div class="quote">${e.quote}</div>`:''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
   $('enemyGrid').querySelectorAll('.enemyCard').forEach(c => {
     c.onclick = () => startBattle(ENEMIES[+c.dataset.i]);
   });
+  // 历史最高轮次
+  const best = getBestRounds();
+  const el = $('bestRecord');
+  if(el){
+    if(best > 0){
+      el.classList.remove('hidden');
+      el.innerHTML = `<span class="trophy">🏆</span> 历史最高：单局 <b>${best}</b> 轮次 —— 挑战看能不能打破自己`;
+    } else {
+      el.classList.add('hidden');
+    }
+  }
 }
 function showStart(){
   $('battle').classList.add('hidden');
   $('tool').classList.add('hidden');
   $('overlay').classList.add('hidden');
   $('start').classList.remove('hidden');
+  buildStart();  // 刷新 enemy 列表 + 历史最高纪录显示
 }
 
 $('btnTutorial').onclick = () => startBattle(PUPPET, true);
@@ -2199,6 +2413,9 @@ $('tutBtn').onclick = tutNext;
 $('btnPlay').onclick = doPlay;
 $('btnNextRound').onclick = nextRound;
 $('btnSkip').onclick = endTurn;
+$('btnDeckPeek').onclick = openDeckModal;
+$('deckModalClose').onclick = closeDeckModal;
+$('deckModal').onclick = (e) => { if(e.target.id === 'deckModal') closeDeckModal(); };
 // 觉醒技按钮暂时移出 UI（策划完成前先隐藏），doSkill() 函数保留
 $('btnQuit').onclick = showStart;
 $('ovBtn').onclick = showStart;
