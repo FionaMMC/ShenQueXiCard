@@ -1840,6 +1840,7 @@ function simulatePlay(cards){
     executeAdd: 0,
     cancelEnemyNext: false, immuneNextDebuff: false,
     shieldsDelta: {pos:0, neg:0},
+    playerShieldsUsed: {pos:0, neg:0},
     effectMult: G.roundEffectMult,             // 这一手的效果倍率（已经收到的 00 加成）
     nextRoundFeeBonus: 0, nextRoundEffectMult: 1,  // 这一手如果含 00 →下一轮次的加成
     finalOverride: false,
@@ -1886,6 +1887,24 @@ function simulatePlay(cards){
     const r = resolvePierce(sim.pos, sim.neg);
     sim.pos = r.pos; sim.neg = r.neg;
     r.pierce.forEach(p => sim.pierceSteps.push(p));
+  }
+
+  // ④' 数轴护盾抵扣 —— 护盾"防止偏移量"，只抵抗 +方向的变化（升轴 = 危险）
+  // 自己出牌也算偏移，本回合内之前积累的护盾会消耗
+  const dPos = sim.pos - before.pos;
+  const dNeg = sim.neg - before.neg;
+  sim.playerShieldsUsed = {pos:0, neg:0};
+  if(dPos > 0 && G.shields.pos > 0){
+    const blocked = Math.min(G.shields.pos, dPos);
+    sim.pos -= blocked;
+    sim.playerShieldsUsed.pos = blocked;
+    sim.effectSteps.push(`🛡 正轴护盾抵扣 ${blocked} 点偏移（剩 ${G.shields.pos - blocked}）`);
+  }
+  if(dNeg > 0 && G.shields.neg > 0){
+    const blocked = Math.min(G.shields.neg, dNeg);
+    sim.neg -= blocked;
+    sim.playerShieldsUsed.neg = blocked;
+    sim.effectSteps.push(`🛡 负轴护盾抵扣 ${blocked} 点偏移（剩 ${G.shields.neg - blocked}）`);
   }
 
   // ⑤ 伤害汇总（应用重伤倍率 + 敌方护盾）
@@ -1967,7 +1986,16 @@ function doPlay(){
     G.executeStacks += sim.executeAdd;
     log(`重伤层数 +${sim.executeAdd}（当前 ${G.executeStacks} 层，每层 +10%）`,'good');
   }
-  // 数轴护盾应用
+  // 数轴护盾消耗（玩家自己出牌的偏移也被护盾抵扣）
+  if(sim.playerShieldsUsed){
+    for(const ax of ['pos','neg']){
+      if(sim.playerShieldsUsed[ax] > 0){
+        G.shields[ax] = Math.max(0, G.shields[ax] - sim.playerShieldsUsed[ax]);
+        log(`${ax==='pos'?'正轴':'负轴'} 护盾抵扣本次出牌 ${sim.playerShieldsUsed[ax]} 点偏移（剩 ${G.shields[ax]}）`,'good');
+      }
+    }
+  }
+  // 数轴护盾获得（本张卡新加的护盾下回合开始时清零）
   for(const ax of ['pos','neg']){
     if(sim.shieldsDelta[ax] > 0){
       G.shields[ax] += sim.shieldsDelta[ax];
