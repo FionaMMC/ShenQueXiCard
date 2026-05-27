@@ -768,8 +768,7 @@
     <div class="note">
       规则速记 —— 两条数轴（正轴 / 负轴）各从 0 起，任一条到 <b>9</b> 失败。
       初始位置 <b>+4 / -4</b>。每回合发 5 张手牌，出 1~2 张即进入下一轮次。
-      抽牌堆见底洗回 → 所有卡面 <b>+1</b>。点「结束回合」让敌方行动并重置费用。
-      两张牌首位数字相同则触发<b>连击</b>。
+      抽牌堆见底洗回 → 所有卡面 <b>×2</b>（第二次 ×4、第三次 ×8…）。点「结束回合」让敌方行动并重置费用。
     </div>
   </div>
 
@@ -829,7 +828,7 @@
       <div class="progressStrip" id="progressStrip"></div>
       <div class="progressHelp">
         <div>📌 <b>轮次中可以出牌一次</b>，每个回合内可以有<b>无限轮次</b>！努力在一回合内创造尽可能多的轮次吧。</div>
-        <div>📌 抽牌堆为 0 时自动从弃牌堆中洗入，<b>每洗入一次所有卡牌的费用 +1</b>，结束回合后清零。</div>
+        <div>📌 抽牌堆为 0 时自动从弃牌堆中洗入，<b>每洗入一次所有卡牌的费用 ×2</b>（第一次×2、第二次×4、第三次×8…；0 不变），结束回合后归 1。</div>
       </div>
     </div>
 
@@ -935,6 +934,7 @@ const DEFAULT_CONFIG = {
   skillResetTo: 4,       // 觉醒技「归元」把双轴设为的值
   skillUnlockAt: 8,      // 任一轴达到此值时解锁觉醒技
   combosEnabled: false,  // 连击系统暂时关闭（设计未敲定）
+  shuffleMultiplier: 2,  // 每次洗牌：卡面费用倍率（×2 → 第一次×2、第二次×4、第三次×8…；0 不变）
 
   /* ---- 10 张设计文档卡 · 每张可调数值 ----
      24 的正倒效果调换：正位伤害 / 倒位 +2 + 重伤
@@ -1285,11 +1285,16 @@ function shuffle(arr){
   return arr;
 }
 
-/* ---- 把 shuffleBonus 应用到一张卡，更新当前 a, b ---- */
+/* ---- 把 shuffleBonus 应用到一张卡，更新当前 a, b ----
+   bonus = 洗牌次数；倍率 = CFG.shuffleMultiplier ^ bonus；初始 0 不变 */
+function shuffleMult(){
+  return Math.pow(CFG.shuffleMultiplier || 2, G.shuffleBonus);
+}
 function applyBonusToCard(c){
   if(c.baseA === undefined){ c.baseA = c.a; c.baseB = c.b; }
-  c.a = c.baseA + G.shuffleBonus;
-  c.b = c.baseB + G.shuffleBonus;
+  const m = shuffleMult();
+  c.a = c.baseA * m;
+  c.b = c.baseB * m;
 }
 function applyBonusToHand(){
   G.hand.forEach(applyBonusToCard);
@@ -1299,7 +1304,7 @@ function drawCard(){
   if(G.deck.length===0 && G.discard.length>0){
     G.deck = shuffle(G.discard); G.discard = [];
     G.shuffleBonus++;
-    log(`抽牌堆见底，弃牌堆洗回 —— 所有卡面费用 <b>+${G.shuffleBonus}</b>`,'bad');
+    log(`抽牌堆见底，弃牌堆洗回 —— 所有卡面费用 <b>×${shuffleMult()}</b>`,'bad');
     applyBonusToHand();
   }
   if(G.deck.length===0) return null;
@@ -1560,11 +1565,12 @@ function render(preview){
     // 简化：当抽牌堆 = 0 时，提示「下次出牌后将洗牌」
     let parts = [];
     const willShuffleNext = G.deck.length === 0 && G.discard.length > 0;
+    const nextMult = Math.pow(CFG.shuffleMultiplier || 2, G.shuffleBonus + 1);
     if(willShuffleNext){
-      parts.push(`<span class="dimNote">再打出牌将触发洗牌，所有卡面 +1（结束回合后清零）</span>`);
+      parts.push(`<span class="dimNote">再打出牌将触发洗牌，所有卡面 ×${nextMult}（结束回合后归 1）</span>`);
     }
     if(G.shuffleBonus > 0){
-      parts.push(`<span class="feeBadge">卡面 +${G.shuffleBonus}</span>`);
+      parts.push(`<span class="feeBadge">卡面 ×${shuffleMult()}</span>`);
     }
     parts.push(`🃏 抽 <b>${G.deck.length}</b>`);
     parts.push(`弃 <b>${G.discard.length}</b>`);
@@ -2068,7 +2074,7 @@ function endTurn(){
   G.round = 1;
   G.roundPlayedThisRound = false;
   if(G.shuffleBonus > 0){
-    log(`卡面费用回归初始（原 +${G.shuffleBonus} 重置）`,'good');
+    log(`卡面费用回归初始（原 ×${shuffleMult()} 重置）`,'good');
     G.shuffleBonus = 0;
   }
   G.shields.pos = 0; G.shields.neg = 0;
@@ -2251,6 +2257,7 @@ function toolCalc(){
 const GLOBAL_TUNE = [
   {path:'initialAxis',     label:'初始数轴位置', min:0, max:9, step:1},
   {path:'handSize',        label:'每回合手牌张数', min:3, max:8, step:1},
+  {path:'shuffleMultiplier', label:'洗牌费用倍率(×)', min:1, max:8, step:1},
   {path:'skillResetTo',    label:'觉醒技归元目标值', min:0, max:6, step:1},
   {path:'skillUnlockAt',   label:'觉醒技解锁阈值', min:5, max:9, step:1},
 ];
@@ -2375,7 +2382,7 @@ function importConfig(){
   try{
     const obj = JSON.parse($('cfgImport').value);
     const nc = clone(DEFAULT_CONFIG);
-    ['initialAxis','handSize','skillResetTo','skillUnlockAt'].forEach(k => {
+    ['initialAxis','handSize','shuffleMultiplier','skillResetTo','skillUnlockAt'].forEach(k => {
       if(typeof obj[k] === 'number') nc[k] = obj[k];
     });
     if(obj.enemies) for(const id in nc.enemies)
